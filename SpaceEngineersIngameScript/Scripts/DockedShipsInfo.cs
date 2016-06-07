@@ -59,13 +59,13 @@ namespace DockedShipsInfo
             GridTerminalSystem.GetBlocksOfType<IMyShipConnector>(Connectors, (x => (x as IMyShipConnector).IsConnected && !x.CubeGrid.Equals(Me.CubeGrid)));
             List<IMyCubeGrid> CubeGrids = new List<IMyCubeGrid>();
             StringBuilder Output = new StringBuilder();
-            for(int i = 0; i < Connectors.Count; i++)
+            for (int i = 0; i < Connectors.Count; i++)
             {
                 IMyCubeGrid CubeGrid = Connectors[i].CubeGrid;
                 if (!CubeGrids.Contains(CubeGrid))
                 {
                     CubeGrids.Add(CubeGrid);
-                    Output.AppendLine("[" + (CubeGrid.GridSizeEnum.Equals(MyCubeSize.Large)?"Large ":"Small ") + (CubeGrid.IsStatic?"Station":"Ship") + "] " + gridname(CubeGrid));
+                    Output.AppendLine("[" + (CubeGrid.GridSizeEnum.Equals(MyCubeSize.Large)?"large ":"small ") + (CubeGrid.IsStatic?"Station":"Ship") + "] " + gridname(CubeGrid));
                 }
             }
             Echo(Output.ToString());
