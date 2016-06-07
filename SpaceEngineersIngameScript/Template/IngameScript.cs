@@ -15,9 +15,20 @@ using SpaceEngineers.Game.ModAPI.Ingame; // SpacenEngineers.Game.dll
 namespace $safeitemname$ {
     public class Program : MyGridProgram
     {
-        #region Game Code - Copy/Paste Code from this region into Block Script Window in Game
+    #region Game Code - Copy/Paste Code from this region into Block Script Window in Game
 
-        public Program()
+    /**
+    $safeitemname$
+    ==============
+    Copyright 2016 Thomas Klose <thomas@bratler.net>
+    License: https://github.com/BaconFist/SpaceEngineersIngameScript/blob/master/LICENSE
+
+    Description
+    ===========
+
+    */
+
+    public Program()
         {
 
             // The constructor, called only once every session and
