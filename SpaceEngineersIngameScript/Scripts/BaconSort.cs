@@ -23,6 +23,7 @@ namespace BaconSort
         ==============
         Copyright 2016 Thomas Klose <thomas@bratler.net>
         License: https://github.com/BaconFist/SpaceEngineersIngameScript/blob/master/LICENSE
+        Source: https://github.com/BaconFist/SpaceEngineersIngameScript/blob/master/SpaceEngineersIngameScript/Scripts/BaconSort.cs
 
         Description
         ===========
