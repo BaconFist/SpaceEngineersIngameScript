@@ -31,7 +31,11 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Scripts\BaconsGravityDriveControls.cs" />
+    <Compile Include="Scripts\BaconSort.cs" />
     <Compile Include="Scripts\DockedShipsInfo.cs" />
+    <Compile Include="Scripts\Menu.cs" />
+    <Compile Include="Scripts\Snippets.cs" />
     <Compile Include="Template\IngameScript.cs" />
   </ItemGroup>
   <ItemGroup>
