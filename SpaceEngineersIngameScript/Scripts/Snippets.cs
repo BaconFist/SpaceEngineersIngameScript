@@ -12,66 +12,11 @@ using VRage.Game.ObjectBuilders.Definitions; // VRage.Game.dll
 using VRage.Game.ModAPI.Ingame; // VRage.Game.dll
 using SpaceEngineers.Game.ModAPI.Ingame; // SpacenEngineers.Game.dll
 
-namespace BaconsGravityDriveControls
+namespace Snippets
 {
     public class Program : MyGridProgram
     {
         #region Game Code - Copy/Paste Code from this region into Block Script Window in Game
-
-        /**
-        BaconsGravityDriveControls
-        ==============
-        Copyright 2016 Thomas Klose <thomas@bratler.net>
-        License: https://github.com/BaconFist/SpaceEngineersIngameScript/blob/master/LICENSE
-
-        Description
-        ===========
-
-        */
-
-        public Program()
-        {
-
-            // The constructor, called only once every session and
-            // always before any other method is called. Use it to
-            // initialize your script. 
-            //     
-            // The constructor is optional and can be removed if not
-            // needed.
-
-        }
-
-        public void Save()
-        {
-
-            // Called when the program needs to save its state. Use
-            // this method to save your state to the Storage field
-            // or some other means. 
-            // 
-            // This method is optional and can be removed if not
-            // needed.
-
-        }
-
-        public void Main(string argument)
-        {
-            IMyTerminalBlock Block = GridTerminalSystem.GetBlockWithName(argument);
-            if(Block != null)
-            {
-                Echo(Block.DetailedInfo);
-            }
-        }
-        
-        public float calcThrust(string orientation)
-        {
-            List<IMyTerminalBlock> Blocks = new List<IMyTerminalBlock>();
-            GridTerminalSystem.GetBlocksOfType<IMyThrust>(Blocks, (x => x.Orientation.ToString().Equals(orientation)));
-            float maxPower = 0;
-            float usedPower = 0;
-
-            return 0.0f;
-        }
-
         class DetailedInfo
         {
             private List<DetailedInfoValue> storage = new List<DetailedInfoValue>();
@@ -92,7 +37,7 @@ namespace BaconsGravityDriveControls
 
             public DetailedInfoValue getValue(int index)
             {
-                return (index < storage.Count && index > -1) ? storage[index] : null;
+                return (index < storage.Count && index > -1)?storage[index]:null;
             }
 
             public class DetailedInfoValue
@@ -106,7 +51,6 @@ namespace BaconsGravityDriveControls
                 }
             }
         }
-
         #endregion End of  Game Code - Copy/Paste Code from this region into Block Script Window in Game
     }
 }
