@@ -12,14 +12,14 @@ using VRage.Game.ObjectBuilders.Definitions; // VRage.Game.dll
 using VRage.Game.ModAPI.Ingame; // VRage.Game.dll
 using SpaceEngineers.Game.ModAPI.Ingame; // SpacenEngineers.Game.dll
 
-namespace DockedShipsInfo
+namespace LAN
 {
     public class Program : MyGridProgram
     {
         #region Game Code - Copy/Paste Code from this region into Block Script Window in Game
 
         /**
-        DockedShipsInfo
+        LAN
         ==============
         Copyright 2016 Thomas Klose <thomas@bratler.net>
         License: https://github.com/BaconFist/SpaceEngineersIngameScript/blob/master/LICENSE
@@ -55,44 +55,33 @@ namespace DockedShipsInfo
 
         public void Main(string argument)
         {
-            List<IMyTerminalBlock> Connectors = new List<IMyTerminalBlock>();
-            GridTerminalSystem.GetBlocksOfType<IMyShipConnector>(Connectors, (x => (x as IMyShipConnector).IsConnected && !x.CubeGrid.Equals(Me.CubeGrid)));
-            List<IMyCubeGrid> CubeGrids = new List<IMyCubeGrid>();
-            StringBuilder Output = new StringBuilder();
-            for (int i = 0; i < Connectors.Count; i++)
+            IMyTerminalBlock B = GridTerminalSystem.GetBlockWithName("Laserantenne 5 Bb.-Heck");
+            if (B != null && B is IMyTerminalBlock)
             {
-                IMyCubeGrid CubeGrid = Connectors[i].CubeGrid;
-                if (!CubeGrids.Contains(CubeGrid))
+
+                List<IMyTerminalBlock> Blocks = new List<IMyTerminalBlock>();
+                GridTerminalSystem.GetBlocksOfType<IMyRadioAntenna>(Blocks);
+                if (Blocks.Count > 0)
                 {
-                    CubeGrids.Add(CubeGrid);
-                    Output.AppendLine("[" + (CubeGrid.GridSizeEnum.Equals(MyCubeSize.Large)?"large ":"small ") + (CubeGrid.IsStatic?"Station":"Ship") + "] " + gridname(CubeGrid));
+                    Blocks[0].SetCustomName((B as IMyLaserAntenna).TargetCoords.ToString());
+                    B.ApplyAction("OnOff");
                 }
             }
-            Echo(Output.ToString());
+
         }
 
-        public string gridname(IMyCubeGrid CubeGrid)
+        public class LAN
         {
-            List<IMyTerminalBlock> Blocks = new List<IMyTerminalBlock>();
-            GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(Blocks, (x => x.CubeGrid.Equals(CubeGrid) && (x is IMyRadioAntenna || x is IMyBeacon) && !x.CustomName.Trim().Equals("")));
+            public class Pakage {
+                public string dst;
+                public string src;
+                public int length;
+                public int checksum;
+                public byte[] data;                
+            }             
 
-            string name;
-            if (Blocks.Count > 0)
-            {
-                string[] names = new string[Blocks.Count];
-                for (int i = 0; i < Blocks.Count; i++)
-                {
-                    names[i] = Blocks[i].CustomName;
-                }
-                name = string.Join("|", names);
-            } else
-            {
-                name = "Unnamed";
-            }
 
-            return name;
         }
-
         #endregion End of  Game Code - Copy/Paste Code from this region into Block Script Window in Game
     }
 }

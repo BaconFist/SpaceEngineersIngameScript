@@ -31,11 +31,20 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
+<<<<<<< HEAD
     <Compile Include="Scripts\ArgumentParser.cs" />
     <Compile Include="Scripts\BaconVectorDrawLib.cs" />
     <Compile Include="Scripts\DockedShipsInfo.cs" />
     <Compile Include="Scripts\GGenWASD.cs" />
     <Compile Include="Scripts\LcdDraw.cs" />
+=======
+    <Compile Include="Scripts\BaconsGravityDrive.cs" />
+    <Compile Include="Scripts\BaconSort.cs" />
+    <Compile Include="Scripts\DockedShipsInfo.cs" />
+    <Compile Include="Scripts\LAN.cs" />
+    <Compile Include="Scripts\Menu.cs" />
+    <Compile Include="Scripts\Snippets.cs" />
+>>>>>>> origin/master
     <Compile Include="Template\IngameScript.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -61,6 +70,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />
+    <None Include="ClassDiagram1.cd" />
   </ItemGroup>
   <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
