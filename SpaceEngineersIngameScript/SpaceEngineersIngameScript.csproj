@@ -30,14 +30,12 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Properties\AssemblyInfo.cs" />
-<<<<<<< HEAD
-    <Compile Include="Scripts\ArgumentParser.cs" />
+      <Compile Include="Scripts\ArgumentParser.cs" />
     <Compile Include="Scripts\BaconVectorDrawLib.cs" />
     <Compile Include="Scripts\DockedShipsInfo.cs" />
     <Compile Include="Scripts\GGenWASD.cs" />
     <Compile Include="Scripts\LcdDraw.cs" />
-=======
+    <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Scripts\BaconsGravityDrive.cs" />
     <Compile Include="Scripts\BaconSort.cs" />
     <Compile Include="Scripts\DockedShipsInfo.cs" />
@@ -45,7 +43,6 @@
     <Compile Include="Scripts\LAN.cs" />
     <Compile Include="Scripts\Menu.cs" />
     <Compile Include="Scripts\Snippets.cs" />
->>>>>>> origin/master
     <Compile Include="Template\IngameScript.cs" />
   </ItemGroup>
   <ItemGroup>
