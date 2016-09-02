@@ -12,14 +12,14 @@ using VRage.Game.ObjectBuilders.Definitions; // VRage.Game.dll
 using VRage.Game.ModAPI.Ingame; // VRage.Game.dll
 using SpaceEngineers.Game.ModAPI.Ingame; // SpacenEngineers.Game.dll
 
-namespace LAN
+namespace Snippet_DetailedInfo
 {
     public class Program : MyGridProgram
     {
         #region Game Code - Copy/Paste Code from this region into Block Script Window in Game
 
         /**
-        LAN
+        Snippet_DetailedInfo
         ==============
         Copyright 2016 Thomas Klose <thomas@bratler.net>
         License: https://github.com/BaconFist/SpaceEngineersIngameScript/blob/master/LICENSE
@@ -55,33 +55,48 @@ namespace LAN
 
         public void Main(string argument)
         {
-            IMyTerminalBlock B = GridTerminalSystem.GetBlockWithName("Laserantenne 5 Bb.-Heck");
-            if (B != null && B is IMyTerminalBlock)
-            {
+            // The main entry point of the script, invoked every time
+            // one of the programmable block's Run actions are invoked.
+            // 
+            // The method itself is required, but the argument above
+            // can be removed if not needed.
+        }
 
-                List<IMyTerminalBlock> Blocks = new List<IMyTerminalBlock>();
-                GridTerminalSystem.GetBlocksOfType<IMyRadioAntenna>(Blocks);
-                if (Blocks.Count > 0)
+        class DetailedInfo
+        {
+            private List<DetailedInfoValue> storage = new List<DetailedInfoValue>();
+
+            public DetailedInfo(IMyTerminalBlock Block)
+            {
+                string[] Info = Block.DetailedInfo.Split(new string[] { "\r\n", "\n\r", "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries);
+                for (int i = 0; i < Info.Length; i++)
                 {
-                    Blocks[0].SetCustomName((B as IMyLaserAntenna).TargetCoords.ToString());
-                    B.ApplyAction("OnOff");
+                    List<string> data = new List<string>();
+                    data.AddRange(Info[i].Split(':'));
+                    if (data.Count > 1)
+                    {
+                        storage.Add(new DetailedInfoValue(data[0], String.Join(":", data.GetRange(1, data.Count - 1))));
+                    }
                 }
             }
 
+            public DetailedInfoValue getValue(int index)
+            {
+                return (index < storage.Count && index > -1) ? storage[index] : null;
+            }
+
+            public class DetailedInfoValue
+            {
+                public string key;
+                public string value;
+                public DetailedInfoValue(string k, string v)
+                {
+                    key = k;
+                    value = v;
+                }
+            }
         }
 
-        public class LAN
-        {
-            public class Pakage {
-                public string dst;
-                public string src;
-                public int length;
-                public int checksum;
-                public byte[] data;                
-            }             
-
-
-        }
         #endregion End of  Game Code - Copy/Paste Code from this region into Block Script Window in Game
     }
 }
