@@ -41,6 +41,7 @@
     <Compile Include="Scripts\BaconsGravityDrive.cs" />
     <Compile Include="Scripts\BaconSort.cs" />
     <Compile Include="Scripts\DockedShipsInfo.cs" />
+    <Compile Include="Scripts\DotmatrixLCD.cs" />
     <Compile Include="Scripts\LAN.cs" />
     <Compile Include="Scripts\Menu.cs" />
     <Compile Include="Scripts\Snippets.cs" />
