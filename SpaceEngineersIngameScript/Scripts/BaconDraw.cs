@@ -19,7 +19,7 @@ namespace BaconDraw
         #region Game Code - Copy/Paste Code from this region into Block Script Window in Game
 
         /**
-        BaconVectorDrawLib
+        BaconDraw
         ==============
         Copyright 2016 Thomas Klose <thomas@bratler.net>
         License: https://github.com/BaconFist/SpaceEngineersIngameScript/blob/master/LICENSE
@@ -29,9 +29,12 @@ namespace BaconDraw
 
         */
         string defaultTag = "[BaconDotmatrix]";
+        const bool DEBUG = false;
 
         public void Main(string argument)
         {
+            BaconDebug debug = new BaconDebug("[BD]", GridTerminalSystem, this, DEBUG);
+
             BaconDotmatrix BDM = new BaconDotmatrix();
             BaconArgs.Parser BP = new BaconArgs.Parser();
             BaconArgs.Bag Args = BP.parseArgs(argument);
@@ -40,21 +43,22 @@ namespace BaconDraw
             {
                 for(int i = 0; i < Tags.Count; i++)
                 {
-                    BDM.updatePanels(Tags[i], GridTerminalSystem, Me.CubeGrid);
+                    BDM.updatePanels(Tags[i], GridTerminalSystem, Me.CubeGrid, debug);
                 }
             } else
             {
-                BDM.updatePanels(defaultTag, GridTerminalSystem, Me.CubeGrid);
+                BDM.updatePanels(defaultTag, GridTerminalSystem, Me.CubeGrid, debug);
             }
         }
 
         class BaconDotmatrix {
-
-            public void updatePanels(string tag, IMyGridTerminalSystem GTS, IMyCubeGrid CG)
+            public void updatePanels(string tag, IMyGridTerminalSystem GTS, IMyCubeGrid CG, BaconDebug debug)
             {
+                debug.putSender("BaconDotmatrix.updatePanels");
                 List<IMyTextPanel> Panels = new List<IMyTextPanel>();
                 GTS.GetBlocksOfType<IMyTextPanel>(Panels, (x => x.CustomName.Contains(tag) && x.CubeGrid.Equals(CG)));
-                VectorScriptParser VSP = new VectorScriptParser();
+                debug.add("found " + Panels.Count.ToString() + " BaconDraw Panels");
+                VectorScriptParser VSP = new VectorScriptParser(debug);
                 Draw draw = new Draw();
                 BaconArgs.Parser BAP = new BaconArgs.Parser();
                 for (int i = 0; i < Panels.Count; i++)
@@ -85,13 +89,14 @@ namespace BaconDraw
                                 }
                                 for(int s = 1; s < script.Length; s++)
                                 {
-                                    VSP.parseLine(script[s], canvas, draw);
+                                    VSP.parseLine(script[s], canvas, draw, debug);
                                 }
                                 Panels[i].WritePublicText(canvas.ToString());
                             }                            
                         }
                     }
                 }
+                debug.pullSender();
             }
 
             public class VectorScriptParser
@@ -101,16 +106,18 @@ namespace BaconDraw
                 private Dictionary<string, Font> Fonts = new Dictionary<string, Font>();
                         
 
-                public VectorScriptParser()
+                public VectorScriptParser(BaconDebug debug)
                 {
-                    defaultFont = this.parseFontFromByDefinition(defaultFontDefinition);
+                    defaultFont = this.parseFontFromByDefinition(defaultFontDefinition, debug);
                 }
 
-                public void parseLine(string line, Canvas canvas, Draw draw)
+                public void parseLine(string line, Canvas canvas, Draw draw, BaconDebug debug)
                 {
+                    debug.putSender("VectorScriptParser.parseLine");
                     string[] a = line.Split(new char[] {' '}, 2);
                     string cmd = ((a.Length > 0) ? a[0] : "null").ToLower();
                     string args = (a.Length > 1) ? a[1] : "";
+                    debug.add("cmd: " + cmd + " | args: " + args);
                     switch (cmd)
                     {
                         case "rect":
@@ -129,14 +136,15 @@ namespace BaconDraw
                             parseLineTo(args, canvas, draw);
                             break;
                         case "text":
-                            parseText(args, canvas, draw);
+                            parseText(args, canvas, draw, debug);
                             break;
                         case "font":
-                            parseFont(args);
+                            parseFont(args, debug);
                             break;
                         default:
                             break;
                     }
+                    debug.pullSender();
                 }
 
                 private Font getFontByName(string name)
@@ -144,12 +152,12 @@ namespace BaconDraw
                     return Fonts.ContainsKey(name) ? Fonts[name] : defaultFont;
                 }
 
-                private void parseFont(string line)
+                private void parseFont(string line, BaconDebug debug)
                 {
                     string[] argv = line.Split(new char[] {' '}, 2);
                     if (argv.Length == 2 && !Fonts.ContainsKey(argv[0]))
                     {
-                        Font tmp = parseFontFromByDefinition(argv[1]);
+                        Font tmp = parseFontFromByDefinition(argv[1], debug);
                         if(tmp != null)
                         {
                             Fonts.Add(argv[0], tmp);
@@ -157,8 +165,9 @@ namespace BaconDraw
                     }
                 }
 
-                public Font parseFontFromByDefinition(string defintion)
+                public Font parseFontFromByDefinition(string defintion, BaconDebug debug)
                 {
+                    debug.putSender("VectorScriptParser.parseFontFromByDefinition");
                     string[] argv = defintion.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
                     if (argv.Length > 0)
                     {
@@ -166,41 +175,67 @@ namespace BaconDraw
                         System.Text.RegularExpressions.Regex pointRgx = new System.Text.RegularExpressions.Regex(@"\d+,\d+");
                         List<Point> PointSlug = new List<Point>();
                         char glyph = '\0';
+                        bool skip = true;
                         for (int i = 1; i < argv.Length; i++)
                         {
                             string tmpArg = argv[i];
+
                             if (tmpArg.Length == 1) //glyph
                             {
                                 if (!glyph.Equals('\0') && PointSlug.Count > 0)
                                 {
-                                    font.addGlyph(glyph, PointSlug);
-                                    glyph = tmpArg[0];
-                                    PointSlug = new List<Point>();
+                                    debug.add("add glyph to font '" + glyph + "'");
+                                    font.addGlyph(glyph, PointSlug, debug);
                                 }
+                                debug.add("new glyph => " + tmpArg);
+                                glyph = tmpArg.ToLower()[0];
+                                if (font.has(glyph))
+                                {
+                                    debug.add("gflyph exists -> skip");
+                                    skip = true;
+                                }
+                                else
+                                {
+                                    skip = false;
+                                    debug.add("start parsing glyph '" + glyph + "'");
+                                }
+                                PointSlug = new List<Point>();
                             }
-                            else if (pointRgx.IsMatch(tmpArg)) //point
+                            else if (!skip && pointRgx.IsMatch(tmpArg)) //point
                             {
-                                string[] points = tmpArg.Split(',');
+                                debug.add("found point for '" + glyph + "' => " + tmpArg);
+                                string[] points = tmpArg.Trim().Split(',');
                                 if (points.Length == 2)
                                 {
                                     int x = 0;
                                     int y = 0;
+                                    debug.add("try parse x: " + points[0].ToString() + ", y: " + points[1].ToString());
                                     if (int.TryParse(points[0], out x) && int.TryParse(points[1], out y))
                                     {
+                                        debug.add("add Point " + x.ToString() + "," + y.ToString());
                                         PointSlug.Add(new Point(x, y));
                                     }
                                 }
                             }
+                            else if (skip)
+                            {
+                                debug.add("skipped: \"" + tmpArg + "\"");
+                            } else { 
+                                debug.add("cant parse: \"" + tmpArg + "\"");
+                            }
                         }
-                        font.addGlyph(' ', new List<Point>()); // 'space'
+                        font.addGlyph(' ', new List<Point>(), debug); // 'space'
+                        debug.pullSender();
                         return font;
                     } else
                     {
+                        debug.add("No entries in definition -> can't parse font");
+                        debug.pullSender();
                         return null;
                     }
                 }
 
-                private void parseText(string args, Canvas canvas, Draw draw)
+                private void parseText(string args, Canvas canvas, Draw draw, BaconDebug debug)
                 {
                     string[] argv = args.Split(new char[] {' '}, 2);
                     if (argv.Length > 1)
@@ -208,7 +243,7 @@ namespace BaconDraw
                         Font tmpF = getFontByName(argv[0]);
                         if (tmpF != null)
                         {
-                            draw.text(argv[1], tmpF, canvas);
+                            draw.text(argv[1], tmpF, canvas, debug);
                         }
                     }
                 }
@@ -279,22 +314,30 @@ namespace BaconDraw
 
             public class Draw
             {
-                public void text(string text, Font font, Canvas canvas)
+                public void text(string text, Font font, Canvas canvas, BaconDebug debug)
                 {
+                    debug.putSender("Draw.text");
                     int offsetX = canvas.getPos().X;
                     int offsetY = canvas.getPos().Y;
+                    debug.add("length: " + text.Length.ToString() + ", position: " + offsetX.ToString() + "," + offsetY.ToString() );
                     for (int i = 0; i < text.Length; i++) {
-                        char curChar = text[i];
-                        List<Point> slug = font.getPoints(curChar);
+                        char curChar = text.ToLower()[i];
+                        List<Point> slug = font.getPoints(curChar, debug);
                         if(slug != null)
                         {
+                            string dbgTmp = "";
                             for(int p = 0; p < slug.Count; p++) {
-                                canvas.add(new Point(offsetX+slug[p].X, offsetY + slug[p].Y));
+                                Point P = new Point(offsetX + slug[p].X, offsetY + slug[p].Y);
+                                canvas.add(P, false);
+                                dbgTmp += "["+P.X.ToString()+","+P.Y.ToString()+"]";
                             }
+                            debug.add("drawing '" + curChar + "' (" + slug.Count + ") " + dbgTmp);
+                            dbgTmp = "";
                         }
-                        offsetX = offsetX + font.getWidth();
+                        offsetX = offsetX + font.getWidth() +1;
                     }
-                    moveTo(new Point(offsetX, offsetY+font.getHeight()), canvas);
+                    moveTo(new Point(offsetX, offsetY), canvas);
+                    debug.pullSender();
                 }
 
                 public void circle(int r, Canvas canvas)
@@ -474,18 +517,26 @@ namespace BaconDraw
                 private int width = 0;
                 private int height = 0;
 
-                public void addGlyph(char glyph, List<Point> Points)
+                public void addGlyph(char glyph, List<Point> Points, BaconDebug debug)
                 {
+                    debug.putSender("Font.addGlyph");
                     if (!glyphMap.ContainsKey(glyph))
                     {
                         for(int i = 0; i < Points.Count; i++)
                         {
-                            width = Math.Max(Points[i].X, width) +1;
-                            height = Math.Max(Points[i].Y, height) +1;
-                            glyphMap.Add(glyph, Points);
+                            width = Math.Max(Points[i].X+1, width);
+                            height = Math.Max(Points[i].Y+1, height);
+                            debug.add("set font diemsions to " + width.ToString() + "x" + height.ToString() + " (Point => " + Points[i].ToString() + ")");
                         }
+                        glyphMap.Add(glyph, Points);
                     }
+                    debug.pullSender();
                 }        
+
+                public bool has(char glyph)
+                {
+                    return glyphMap.ContainsKey(glyph);
+                }
                 
                 public int getHeight()
                 {
@@ -497,8 +548,11 @@ namespace BaconDraw
                     return width;
                 }
 
-                public List<Point> getPoints(char glyph)
+                public List<Point> getPoints(char glyph, BaconDebug debug)
                 {
+                    debug.putSender("Font.getPoints");
+                    debug.add("Points for '" + glyph + "' " + (glyphMap.ContainsKey(glyph)?"MATCH (" + glyphMap[glyph].Count.ToString() + ")":"NO MATCH - using placeholder (" + getUnknownChar().Count.ToString() + ")"));                    
+                    debug.pullSender();
                     return glyphMap.ContainsKey(glyph) ? glyphMap[glyph] : getUnknownChar();
                 }
 
@@ -545,149 +599,8 @@ namespace BaconDraw
             }
         }
 
-        public class BaconArgs
-        {
-            public class Parser
-            {
-                static Dictionary<string, Bag> cache = new Dictionary<string, Bag>();
-                public Bag parseArgs(string args)
-                {
-                    if (!cache.ContainsKey(args))
-                    {
-                        Bag Result = new Bag();
-                        bool isEscape = false;
-                        bool isEncapsulatedString = false;
-                        StringBuilder slug = new StringBuilder();
-                        for (int i = 0; i < args.Length; i++)
-                        {
-                            char glyp = args[i];
-                            if (isEscape)
-                            {
-                                slug.Append(glyp);
-                                isEscape = false;
-                            }
-                            else if (glyp.Equals('\\'))
-                            {
-                                isEscape = true;
-                            }
-                            else if (isEncapsulatedString && !glyp.Equals('"'))
-                            {
-                                slug.Append(glyp);
-                            }
-                            else if (glyp.Equals('"'))
-                            {
-                                isEncapsulatedString = !isEncapsulatedString;
-                            }
-                            else if (glyp.Equals(' '))
-                            {
-                                Result.add(slug.ToString());
-                                slug.Clear();
-                            }
-                            else
-                            {
-                                slug.Append(glyp);
-                            }
-                        }
-                        if (slug.Length > 0)
-                        {
-                            Result.add(slug.ToString());
-                        }
-                        cache.Add(args, Result);
-                    }
-
-                    return cache[args];
-                }
-            }
-
-            public class Bag
-            {
-                protected Dictionary<char, int> Flags = new Dictionary<char, int>();
-                protected List<string> Arguments = new List<string>();
-                protected Dictionary<string, List<string>> Options = new Dictionary<string, List<string>>();
-
-                public List<string> getArguments()
-                {
-                    return Arguments;
-                }
-
-                public int getFlag(char flag)
-                {
-                    return Flags.ContainsKey(flag) ? Flags[flag] : 0;
-                }
-
-                public List<string> getOption(string name)
-                {
-                    return Options.ContainsKey(name) ? Options[name] : new List<string>();
-                }
-
-                public void add(string arg)
-                {
-                    if (!arg.StartsWith("-"))
-                    {
-                        Arguments.Add(arg);
-                    }
-                    else if (arg.StartsWith("--"))
-                    {
-                        KeyValuePair<string, string> slug = getKeyValuePair(arg);
-                        string key = slug.Key.Substring(2);
-                        if (!Options.ContainsKey(key))
-                        {
-                            Options.Add(key, new List<string>());
-                        }
-                        Options[key].Add(slug.Value);
-                    }
-                    else
-                    {
-                        string slug = arg.Substring(1);
-                        for (int i = 0; i < slug.Length; i++)
-                        {
-                            if (this.Flags.ContainsKey(slug[i]))
-                            {
-                                this.Flags[slug[i]]++;
-                            }
-                            else
-                            {
-                                this.Flags.Add(slug[i], 1);
-                            }
-                        }
-                    }
-                }
-
-                private KeyValuePair<string, string> getKeyValuePair(string arg)
-                {
-                    string[] pair = arg.Split(new char[] { '=' }, 2);
-                    return new KeyValuePair<string, string>(pair[0], (pair.Length > 1) ? pair[1] : null);
-                }
-
-                override public string ToString()
-                {
-                    List<string> opts = new List<string>();
-                    foreach (string key in Options.Keys)
-                    {
-                        opts.Add(escape(key) + ":[" + string.Join(",", Options[key].ConvertAll<string>(x => escape(x)).ToArray()) + "]");
-                    }
-                    List<string> flags = new List<string>();
-                    foreach (char key in Flags.Keys)
-                    {
-                        flags.Add(key + ":" + Flags[key].ToString());
-                    }
-                    StringBuilder slug = new StringBuilder();
-                    slug.Append("{\"a\":[");
-                    slug.Append(string.Join(",", Arguments.ConvertAll<string>(x => escape(x)).ToArray()));
-                    slug.Append("],\"o\":[{");
-                    slug.Append(string.Join("},{", opts));
-                    slug.Append("}],\"f\":[{");
-                    slug.Append(string.Join("},{", flags));
-                    slug.Append("}]}");
-                    return slug.ToString();
-                }
-
-                private string escape(string val)
-                {
-                    return (val != null) ? "\"" + val.Replace(@"\", @"\\").Replace(@"""", @"\""") + "\"" : @"null";
-                }
-            }
-        }
+        public class BaconArgs { static public Bag parse(string a) { return (new Parser()).parseArgs(a); } public class Parser { static Dictionary<string, Bag> h = new Dictionary<string, Bag>(); public Bag parseArgs(string a) { if (!h.ContainsKey(a)) { Bag b = new Bag(); var c = false; var d = false; var e = new StringBuilder(); for (int f = 0; f < a.Length; f++) { var g = a[f]; if (c) { e.Append(g); c = false; } else if (g.Equals('\\')) c = true; else if (d && !g.Equals('"')) e.Append(g); else if (g.Equals('"')) d = !d; else if (g.Equals(' ')) { b.add(e.ToString()); e.Clear(); } else e.Append(g); } if (e.Length > 0) b.add(e.ToString()); h.Add(a, b); } return h[a]; } } public class Bag { protected Dictionary<char, int> h = new Dictionary<char, int>(); protected List<string> i = new List<string>(); protected Dictionary<string, List<string>> j = new Dictionary<string, List<string>>(); public List<string> getArguments() { return i; } public int getFlag(char a) { return h.ContainsKey(a) ? h[a] : 0; } public List<string> getOption(string a) { return j.ContainsKey(a) ? j[a] : new List<string>(); } public void add(string a) { if (!a.StartsWith("-")) i.Add(a); else if (a.StartsWith("--")) { KeyValuePair<string, string> b = k(a); var c = b.Key.Substring(2); if (!j.ContainsKey(c)) j.Add(c, new List<string>()); j[c].Add(b.Value); } else { var b = a.Substring(1); for (int d = 0; d < b.Length; d++) if (this.h.ContainsKey(b[d])) { this.h[b[d]]++; } else { this.h.Add(b[d], 1); } } } KeyValuePair<string, string> k(string a) { string[] b = a.Split(new char[] { '=' }, 2); return new KeyValuePair<string, string>(b[0], (b.Length > 1) ? b[1] : null); } override public string ToString() { var a = new List<string>(); foreach (string key in j.Keys) a.Add(l(key) + ":[" + string.Join(",", j[key].ConvertAll<string>(b => l(b)).ToArray()) + "]"); var c = new List<string>(); foreach (char key in h.Keys) c.Add(key + ":" + h[key].ToString()); var d = new StringBuilder(); d.Append("{\"a\":["); d.Append(string.Join(",", i.ConvertAll<string>(b => l(b)).ToArray())); d.Append("],\"o\":[{"); d.Append(string.Join("},{", a)); d.Append("}],\"f\":[{"); d.Append(string.Join("},{", c)); d.Append("}]}"); return d.ToString(); } string l(string a) { return (a != null) ? "\"" + a.Replace(@"\", @"\\").Replace(@"""", @"\""") + "\"" : @"null"; } } }
+        public class BaconDebug { List<IMyTextPanel> g = new List<IMyTextPanel>(); MyGridProgram h; List<string> i = new List<string>(); bool j = false; public BaconDebug(string a, IMyGridTerminalSystem b, MyGridProgram c, bool d) { var e = new List<IMyTerminalBlock>(); b.GetBlocksOfType<IMyTextPanel>(e, ((IMyTerminalBlock f) => f.CustomName.Contains(a) && f.CubeGrid.Equals(c.Me.CubeGrid))); g = e.ConvertAll<IMyTextPanel>(f => f as IMyTextPanel); this.h = c; putSender("BaconDebug"); k(d); } void k(bool a) { this.j = a; } void l(string a, IMyGridTerminalSystem b) { } public void putSender(string a) { i.Add(a); } public void pullSender() { if (i.Count > 1) i.RemoveAt(i.Count - 1); } public string getSender() { return i[i.Count - 1]; } public void add(string a) { if (j) for (int b = 0; b < g.Count; b++) { List<string> c = new List<string>(); c.AddRange(g[b].GetPublicText().Split(new char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)); StringBuilder d = new StringBuilder(); c.Add(n(a)); if (!g[b].GetPrivateTitle().ToLower().Equals("nolinelimit")) { int e = m(g[b]); if (c.Count > e) { c.RemoveRange(0, c.Count - e); } } g[b].WritePublicText(string.Join("\n", c)); } } int m(IMyTextPanel a) { float b = a.GetValueFloat("FontSize"); if (b == 0.0f) b = 0.01f; return Convert.ToInt32(Math.Ceiling(17.0f / b)); } string n(string a) { var b = new StringBuilder(); b.Append("[" + DateTime.Now.ToShortTimeString() + "]"); b.Append("[" + getSender() + "]"); b.Append("[IC " + h.Runtime.CurrentInstructionCount + "/" + h.Runtime.MaxInstructionCount + "]"); b.Append("[MCC " + h.Runtime.CurrentMethodCallCount + "/" + h.Runtime.MaxMethodCallCount + "]"); b.Append(" " + a); return b.ToString(); } }
 
 
         #endregion End of  Game Code - Copy/Paste Code from this region into Block Script Window in Game
