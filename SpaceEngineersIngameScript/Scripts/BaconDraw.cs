@@ -95,7 +95,17 @@ namespace BaconDraw
             }
 
             public class VectorScriptParser
-            {                
+            {
+                string defaultFontDefinition = @"! 2,0 2,1 2,2 2,4 "" 1,0 3,0 1,1 3,1  # 1,0 3,0 0,1 1,1 2,1 3,1 4,1 1,2 3,2 0,3 1,3 2,3 3,3 4,3 1,4 3,4 $ 1,0 2,0 3,0 4,0 0,1 2,1 1,2 2,2 3,2 2,3 4,3 0,4 1,4 2,4 3,4 % 0,0 1,0 4,0 0,1 1,1 3,1 2,2 1,3 3,3 4,3 0,4 3,4 4,4 ' 2,0 2,1 ( 3,0 2,1 2,3 2,3 3,4 ) 1,0 2,1 2,2 2,3 1,4 * 1,0 3,0 2,1 1,2 3,2 , 2,3 1,4 - 1,2 2,2 3,2 . 2,4 / 4,0 3,1 2,2 1,3 0,4 0 1,0 2,0 3,0 0,1 3,1 4,1 0,2 2,2 4,2 0,3 1,3 4,3 1,4 2,4 3,4 1 2,0 3,0 3,1 3,2 3,3 2,4 3,4 4,4 2 0,0 1,0 2,0 3,0 4,1 1,2 2,2 3,2 0,3 0,4 1,4 2,4 3,4 4,4 3 0,0 1,0 2,0 3,0 4,1 2,2 3,2 4,3 0,4 1,4 2,4 3,4 4 2,0 3,0 1,1 3,1 0,2 3,2 0,3 1,3 2,3 3,3 4,3 3,4 5 0,0 1,0 2,0 3,3 4,0 0,1 0,2 1,2 2,2 3,3 4,3 0,4 1,4 2,4 3,4 6 1,0 2,0 3,0 4,0 0,1 0,2 1,2 2,2 3,2 0,3 4,1 1,4 2,4 3,4 7 0,0 1,0 2,0 3,0 4,0 4,1 3,2 2,3 1,4 8 1,0 2,0 3,0 0,1 4,1 1,2 2,2 3,2 0,3 4,3 1,4 2,4 3,4 9 1,0 2,0 3,0 0,1 4,1 1,2 2,2 3,2 4,2 4,3 0,4 1,4 2,4 3,4 : 2,1 2,3 ; 2,1 2,3 1,4 < 4,0 3,1 2,2 3,3 4,4 = 1,1 2,1 3,1 1,3 2,3 3,3 > 0,0 1,1 2,2 1,3 0,4 ? 1,0 2,0 3,0 4,1 2,2 3,2 2,4 @ 1,0 2,0 3,0 4,0 0,1 4,1 0,2 2,2 3,2 4,2 0,3 2,3 3,3 1,4 2,4 3,4 4,4 A 2,0 1,1 3,1 0,2 4,2 0,3 1,3 2,3 3,3 4,3 0,4 4,4 B 0,0 1,0 2,0 3,0 0,1 4,1 0,2 1,2 2,2 3,2 0,3 4,3 0,4 1,4 2,4 3,4 C 1,0 2,0 3,0 4,0 0,1 0,2 0,3 1,4 2,4 3,4 4,4 D 0,0 1,0 2,0 3,0 0,1 4,1 0,2 4,1 0,3 4,3 0,4 1,4 2,4 3,4 E 0,0 1,0 2,0 3,0 4,0 0,1 0,2 1,2 2,2 0,3 0,4 1,4 2,4 3,4 4,4 F 0,0 1,0 2,0 3,0 4,0 0,1 0,2 1,2 2,2 0,3 0,4 G 1,0 2,0 3,0 4,0 0,1 0,2 3,2 4,2 0,3 4,3 1,4 2,4 3,4 4,4 H 0,0 4,0 0,1 4,1 0,2 1,2 2,2 3,2 4,2 0,3 4,3 0,4 4,4 I 0,0 1,0 2,0 3,0 4,0 2,1 2,2 2,3 0,4 1,4 2,4 3,4 4,4 J 0,0 1,0 2,0 3,0 4,0 3,1 3,2 0,3 3,3 1,4 2,4 K 0,0 4,0 0,1 3,1 0,2 1,2 2,2 0,3 3,3 0,4 4,4 L 0,0 0,1 0,2 0,3 0,4 1,4 2,4 3,4 4,4 M 0,0 4,0 0,1 1,1 3,1 4,1 0,2 2,2 4,2 0,3 4,3 0,4 4,4 N 0,0 4,0 0,1 1,1 4,1 0,2 2,2 4,2 0,3 3,3 4,3 0,4 4,4 O 1,0 2,0 3,0 0,1 4,1 0,2 4,2 0,3 4,3 1,4 2,4 3,4 P 0,0 1,0 2,0 3,0 0,1 4,1 0,2 1,2 2,2 3,2 0,3 0,4 Q 1,0 2,0 3,0 0,1 4,1 0,2 2,2 4,2 0,3 3,3 1,4 2,4 4,4 R 0,0 1,0 2,0 3,0 0,1 4,1 0,2 1,2 2,2 3,2 0,3 4,3 0,4 4,4 S 1,0 2,0 3,0 4,0 0,1 1,2 2,2 3,2 4,3 0,4 1,4 2,4 3,4 T 0,0 1,0 2,0 3,0 4,0 2,1 2,2 2,3 2,4 U 0,0 4,0 0,1 4,1 0,2 4,2 0,3 4,3 1,4 2,4 3,4 V 0,0 4,0 0,1 4,1 0,2 4,2 1,3 3,3 2,4 W 0,0 4,0 0,1 4,1 0,2 2,2 4,2 0,3 1,3 3,3 4,3 0,4 4,4 X 0,0 4,0 1,1 3,1 2,2 1,3 3,3 0,4 4,4  Y 0,0 4,0 1,1 3,1 2,2 2,3 2,4 Z 0,0 1,0 2,0 3,0 4,0 3,1 2,2 1,3 0,4 1,4 2,4 3,4 4,4 [ 2,0 3,0 2,1 2,2 2,3 2,4 3,4 \ 0,0 1,1 2,2 3,3 4,4 ] 1,0 2,0 2,1 2,2 2,3 1,4 2,4 ^ 2,0 1,1 3,1 _ 0,4 1,4 2,4 3,4 4,4 ` 2,0 3,1 { 2,0 3,0 2,1 1,2 2,3 2,4 3,4 | 2,0 2,1 2,2 2,3 2,4 } 1,0 2,0 2,1 3,2 2,3 1,4 2,4 ~ 1,1 0,2 2,2 4,2 3,3";
+                private Font defaultFont = null;
+                private Dictionary<string, Font> Fonts = new Dictionary<string, Font>();
+                        
+
+                public VectorScriptParser()
+                {
+                    defaultFont = this.parseFontFromByDefinition(defaultFontDefinition);
+                }
+
                 public void parseLine(string line, Canvas canvas, Draw draw)
                 {
                     string[] a = line.Split(new char[] {' '}, 2);
@@ -118,8 +128,88 @@ namespace BaconDraw
                         case "lineto":
                             parseLineTo(args, canvas, draw);
                             break;
+                        case "text":
+                            parseText(args, canvas, draw);
+                            break;
+                        case "font":
+                            parseFont(args);
+                            break;
                         default:
                             break;
+                    }
+                }
+
+                private Font getFontByName(string name)
+                {
+                    return Fonts.ContainsKey(name) ? Fonts[name] : defaultFont;
+                }
+
+                private void parseFont(string line)
+                {
+                    string[] argv = line.Split(new char[] {' '}, 2);
+                    if (argv.Length == 2 && !Fonts.ContainsKey(argv[0]))
+                    {
+                        Font tmp = parseFontFromByDefinition(argv[1]);
+                        if(tmp != null)
+                        {
+                            Fonts.Add(argv[0], tmp);
+                        }                        
+                    }
+                }
+
+                public Font parseFontFromByDefinition(string defintion)
+                {
+                    string[] argv = defintion.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                    if (argv.Length > 0)
+                    {
+                        Font font = new Font();
+                        System.Text.RegularExpressions.Regex pointRgx = new System.Text.RegularExpressions.Regex(@"\d+,\d+");
+                        List<Point> PointSlug = new List<Point>();
+                        char glyph = '\0';
+                        for (int i = 1; i < argv.Length; i++)
+                        {
+                            string tmpArg = argv[i];
+                            if (tmpArg.Length == 1) //glyph
+                            {
+                                if (!glyph.Equals('\0') && PointSlug.Count > 0)
+                                {
+                                    font.addGlyph(glyph, PointSlug);
+                                    glyph = tmpArg[0];
+                                    PointSlug = new List<Point>();
+                                }
+                            }
+                            else if (pointRgx.IsMatch(tmpArg)) //point
+                            {
+                                string[] points = tmpArg.Split(',');
+                                if (points.Length == 2)
+                                {
+                                    int x = 0;
+                                    int y = 0;
+                                    if (int.TryParse(points[0], out x) && int.TryParse(points[1], out y))
+                                    {
+                                        PointSlug.Add(new Point(x, y));
+                                    }
+                                }
+                            }
+                        }
+                        font.addGlyph(' ', new List<Point>()); // 'space'
+                        return font;
+                    } else
+                    {
+                        return null;
+                    }
+                }
+
+                private void parseText(string args, Canvas canvas, Draw draw)
+                {
+                    string[] argv = args.Split(new char[] {' '}, 2);
+                    if (argv.Length > 1)
+                    {
+                        Font tmpF = getFontByName(argv[0]);
+                        if (tmpF != null)
+                        {
+                            draw.text(argv[1], tmpF, canvas);
+                        }
                     }
                 }
 
@@ -189,6 +279,24 @@ namespace BaconDraw
 
             public class Draw
             {
+                public void text(string text, Font font, Canvas canvas)
+                {
+                    int offsetX = canvas.getPos().X;
+                    int offsetY = canvas.getPos().Y;
+                    for (int i = 0; i < text.Length; i++) {
+                        char curChar = text[i];
+                        List<Point> slug = font.getPoints(curChar);
+                        if(slug != null)
+                        {
+                            for(int p = 0; p < slug.Count; p++) {
+                                canvas.add(new Point(offsetX+slug[p].X, offsetY + slug[p].Y));
+                            }
+                        }
+                        offsetX = offsetX + font.getWidth();
+                    }
+                    moveTo(new Point(offsetX, offsetY+font.getHeight()), canvas);
+                }
+
                 public void circle(int r, Canvas canvas)
                 {
                     int d;
@@ -359,6 +467,61 @@ namespace BaconDraw
                 }
             }
 
+            public class Font
+            {
+                private Dictionary<char, List<Point>> glyphMap = new Dictionary<char, List<Point>>();
+                private List<Point> unknownChar = null;
+                private int width = 0;
+                private int height = 0;
+
+                public void addGlyph(char glyph, List<Point> Points)
+                {
+                    if (!glyphMap.ContainsKey(glyph))
+                    {
+                        for(int i = 0; i < Points.Count; i++)
+                        {
+                            width = Math.Max(Points[i].X, width) +1;
+                            height = Math.Max(Points[i].Y, height) +1;
+                            glyphMap.Add(glyph, Points);
+                        }
+                    }
+                }        
+                
+                public int getHeight()
+                {
+                    return height;
+                }        
+
+                public int getWidth()
+                {
+                    return width;
+                }
+
+                public List<Point> getPoints(char glyph)
+                {
+                    return glyphMap.ContainsKey(glyph) ? glyphMap[glyph] : getUnknownChar();
+                }
+
+                private List<Point> getUnknownChar()
+                {
+                    if(unknownChar == null)
+                    {
+                        unknownChar = new List<Point>();
+                        for(int x = 1; x < width - 1; x++)
+                        {
+                            unknownChar.Add(new Point(x,1));
+                            unknownChar.Add(new Point(x, height-2));
+                        }
+                        for(int y = 2; y < height - 2; y++)
+                        {
+                            unknownChar.Add(new Point(1, y));
+                            unknownChar.Add(new Point(width-2, y));
+                        }
+                    }
+                    return unknownChar;
+                }
+            }
+            
             public class Color
             {
                 static protected Dictionary<char, char> map = new Dictionary<char, char>() {

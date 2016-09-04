@@ -60,10 +60,44 @@ namespace Snippet_BaconArgs
             // 
             // The method itself is required, but the argument above
             // can be removed if not needed.
+
+
         }
 
+        #region BaconArgs
         public class BaconArgs
         {
+            /*
+                BaconArgs.Bag ArgBag = BaconArgs.parse(@"argument\ 1 --opt1=val1 --opt1=val2 --opt1 --opt2 --opt2=""value 2"" -flags -f -s ""argument 2""");
+                //acces flags:
+                    ArgBag.getFlag('f'); // (int)2
+                    ArgBag.getFlag('l'); // (int)1
+                    ArgBag.getFlag('a'); // (int)1
+                    ArgBag.getFlag('g'); // (int)1
+                    ArgBag.getFlag('s'); // (int)2
+                    ArgBag.getFlag('m'); // (int)0
+                //access arguments:
+                    ArgBag.getArguments(); // (List<string>)["argument 1", "argument 2"]
+                //acces options:
+                    ArgBag.getOption("opt1"); // (List<string>)["val1", null]
+                    ArgBag.getOption("opt2"); // (List<string>)[null, "value 2"]
+                //dump all the stuff
+                    ArgBag.ToString(); // outputs a valid json object
+                //check if option is set
+                    (ArgBag.getOption("opt1").Count > 0); // true if there is any --opt1
+                    (ArgBag.getFlag('g') > 0); // true if tehere is at least one 'g' flag
+                    (ArgBag.getArguments().Count > 0); // true if ther is any argument
+                //some explonation:
+                    getFlag(char flag) shows how often a flag is found
+                    getOption(string option) gives a list of all the values assigned to this option (will be an empty list if the option is not set
+                    getArguments() gives a list with all the arguments which are not options and not flags
+            */
+
+            static public Bag parse(string args)
+            {
+                return (new Parser()).parseArgs(args);
+            }
+
             public class Parser
             {
                 static Dictionary<string, Bag> cache = new Dictionary<string, Bag>();
@@ -205,7 +239,13 @@ namespace Snippet_BaconArgs
                 }
             }
         }
-
+        #endregion BaconArgs
+        class minified
+        {
+            #region BaconArgs
+            public class BaconArgs { static public Bag parse(string a) { return (new Parser()).parseArgs(a); } public class Parser { static Dictionary<string, Bag> h = new Dictionary<string, Bag>(); public Bag parseArgs(string a) { if (!h.ContainsKey(a)) { Bag b = new Bag(); var c = false; var d = false; var e = new StringBuilder(); for (int f = 0; f < a.Length; f++) { var g = a[f]; if (c) { e.Append(g); c = false; } else if (g.Equals('\\')) c = true; else if (d && !g.Equals('"')) e.Append(g); else if (g.Equals('"')) d = !d; else if (g.Equals(' ')) { b.add(e.ToString()); e.Clear(); } else e.Append(g); } if (e.Length > 0) b.add(e.ToString()); h.Add(a, b); } return h[a]; } } public class Bag { protected Dictionary<char, int> h = new Dictionary<char, int>(); protected List<string> i = new List<string>(); protected Dictionary<string, List<string>> j = new Dictionary<string, List<string>>(); public List<string> getArguments() { return i; } public int getFlag(char a) { return h.ContainsKey(a) ? h[a] : 0; } public List<string> getOption(string a) { return j.ContainsKey(a) ? j[a] : new List<string>(); } public void add(string a) { if (!a.StartsWith("-")) i.Add(a); else if (a.StartsWith("--")) { KeyValuePair<string, string> b = k(a); var c = b.Key.Substring(2); if (!j.ContainsKey(c)) j.Add(c, new List<string>()); j[c].Add(b.Value); } else { var b = a.Substring(1); for (int d = 0; d < b.Length; d++) if (this.h.ContainsKey(b[d])) { this.h[b[d]]++; } else { this.h.Add(b[d], 1); } } } KeyValuePair<string, string> k(string a) { string[] b = a.Split(new char[] { '=' }, 2); return new KeyValuePair<string, string>(b[0], (b.Length > 1) ? b[1] : null); } override public string ToString() { var a = new List<string>(); foreach (string key in j.Keys) a.Add(l(key) + ":[" + string.Join(",", j[key].ConvertAll<string>(b => l(b)).ToArray()) + "]"); var c = new List<string>(); foreach (char key in h.Keys) c.Add(key + ":" + h[key].ToString()); var d = new StringBuilder(); d.Append("{\"a\":["); d.Append(string.Join(",", i.ConvertAll<string>(b => l(b)).ToArray())); d.Append("],\"o\":[{"); d.Append(string.Join("},{", a)); d.Append("}],\"f\":[{"); d.Append(string.Join("},{", c)); d.Append("}]}"); return d.ToString(); } string l(string a) { return (a != null) ? "\"" + a.Replace(@"\", @"\\").Replace(@"""", @"\""") + "\"" : @"null"; } } }
+            #endregion BaconArgs
+        }
         #endregion End of  Game Code - Copy/Paste Code from this region into Block Script Window in Game
     }
 }
