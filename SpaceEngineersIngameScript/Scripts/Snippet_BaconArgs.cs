@@ -93,19 +93,19 @@ namespace Snippet_BaconArgs
                     getArguments() gives a list with all the arguments which are not options and not flags
             */
 
-            static public Bag parse(string args)
+            static public BaconArgs parse(string args)
             {
                 return (new Parser()).parseArgs(args);
             }
 
             public class Parser
             {
-                static Dictionary<string, Bag> cache = new Dictionary<string, Bag>();
-                public Bag parseArgs(string args)
+                static Dictionary<string, BaconArgs> cache = new Dictionary<string, BaconArgs>();
+                public BaconArgs parseArgs(string args)
                 {
                     if (!cache.ContainsKey(args))
                     {
-                        Bag Result = new Bag();
+                        BaconArgs Result = new BaconArgs();
                         bool isEscape = false;
                         bool isEncapsulatedString = false;
                         StringBuilder slug = new StringBuilder();
@@ -150,100 +150,97 @@ namespace Snippet_BaconArgs
                 }
             }
 
-            public class Bag
+            protected Dictionary<char, int> Flags = new Dictionary<char, int>();
+            protected List<string> Arguments = new List<string>();
+            protected Dictionary<string, List<string>> Options = new Dictionary<string, List<string>>();
+
+            public List<string> getArguments()
             {
-                protected Dictionary<char, int> Flags = new Dictionary<char, int>();
-                protected List<string> Arguments = new List<string>();
-                protected Dictionary<string, List<string>> Options = new Dictionary<string, List<string>>();
+                return Arguments;
+            }
 
-                public List<string> getArguments()
+            public int getFlag(char flag)
+            {
+                return Flags.ContainsKey(flag) ? Flags[flag] : 0;
+            }
+
+            public List<string> getOption(string name)
+            {
+                return Options.ContainsKey(name) ? Options[name] : new List<string>();
+            }
+
+            public void add(string arg)
+            {
+                if (!arg.StartsWith("-"))
                 {
-                    return Arguments;
+                    Arguments.Add(arg);
                 }
-
-                public int getFlag(char flag)
+                else if (arg.StartsWith("--"))
                 {
-                    return Flags.ContainsKey(flag) ? Flags[flag] : 0;
-                }
-
-                public List<string> getOption(string name)
-                {
-                    return Options.ContainsKey(name) ? Options[name] : new List<string>();
-                }
-
-                public void add(string arg)
-                {
-                    if (!arg.StartsWith("-"))
+                    KeyValuePair<string, string> slug = getKeyValuePair(arg);
+                    string key = slug.Key.Substring(2);
+                    if (!Options.ContainsKey(key))
                     {
-                        Arguments.Add(arg);
+                        Options.Add(key, new List<string>());
                     }
-                    else if (arg.StartsWith("--"))
+                    Options[key].Add(slug.Value);
+                }
+                else
+                {
+                    string slug = arg.Substring(1);
+                    for (int i = 0; i < slug.Length; i++)
                     {
-                        KeyValuePair<string, string> slug = getKeyValuePair(arg);
-                        string key = slug.Key.Substring(2);
-                        if (!Options.ContainsKey(key))
+                        if (this.Flags.ContainsKey(slug[i]))
                         {
-                            Options.Add(key, new List<string>());
+                            this.Flags[slug[i]]++;
                         }
-                        Options[key].Add(slug.Value);
-                    }
-                    else
-                    {
-                        string slug = arg.Substring(1);
-                        for (int i = 0; i < slug.Length; i++)
+                        else
                         {
-                            if (this.Flags.ContainsKey(slug[i]))
-                            {
-                                this.Flags[slug[i]]++;
-                            }
-                            else
-                            {
-                                this.Flags.Add(slug[i], 1);
-                            }
+                            this.Flags.Add(slug[i], 1);
                         }
                     }
                 }
+            }
 
-                private KeyValuePair<string, string> getKeyValuePair(string arg)
-                {
-                    string[] pair = arg.Split(new char[] { '=' }, 2);
-                    return new KeyValuePair<string, string>(pair[0], (pair.Length > 1) ? pair[1] : null);
-                }
+            private KeyValuePair<string, string> getKeyValuePair(string arg)
+            {
+                string[] pair = arg.Split(new char[] { '=' }, 2);
+                return new KeyValuePair<string, string>(pair[0], (pair.Length > 1) ? pair[1] : null);
+            }
 
-                override public string ToString()
+            override public string ToString()
+            {
+                List<string> opts = new List<string>();
+                foreach (string key in Options.Keys)
                 {
-                    List<string> opts = new List<string>();
-                    foreach (string key in Options.Keys)
-                    {
-                        opts.Add(escape(key) + ":[" + string.Join(",", Options[key].ConvertAll<string>(x => escape(x)).ToArray()) + "]");
-                    }
-                    List<string> flags = new List<string>();
-                    foreach (char key in Flags.Keys)
-                    {
-                        flags.Add(key + ":" + Flags[key].ToString());
-                    }
-                    StringBuilder slug = new StringBuilder();
-                    slug.Append("{\"a\":[");
-                    slug.Append(string.Join(",", Arguments.ConvertAll<string>(x => escape(x)).ToArray()));
-                    slug.Append("],\"o\":[{");
-                    slug.Append(string.Join("},{", opts));
-                    slug.Append("}],\"f\":[{");
-                    slug.Append(string.Join("},{", flags));
-                    slug.Append("}]}");
-                    return slug.ToString();
+                    opts.Add(escape(key) + ":[" + string.Join(",", Options[key].ConvertAll<string>(x => escape(x)).ToArray()) + "]");
                 }
+                List<string> flags = new List<string>();
+                foreach (char key in Flags.Keys)
+                {
+                    flags.Add(key + ":" + Flags[key].ToString());
+                }
+                StringBuilder slug = new StringBuilder();
+                slug.Append("{\"a\":[");
+                slug.Append(string.Join(",", Arguments.ConvertAll<string>(x => escape(x)).ToArray()));
+                slug.Append("],\"o\":[{");
+                slug.Append(string.Join("},{", opts));
+                slug.Append("}],\"f\":[{");
+                slug.Append(string.Join("},{", flags));
+                slug.Append("}]}");
+                return slug.ToString();
+            }
 
-                private string escape(string val)
-                {
-                    return (val != null) ? "\"" + val.Replace(@"\", @"\\").Replace(@"""", @"\""") + "\"" : @"null";
-                }
+            private string escape(string val)
+            {
+                return (val != null) ? "\"" + val.Replace(@"\", @"\\").Replace(@"""", @"\""") + "\"" : @"null";
             }
         }
         #endregion BaconArgs
         class minified
         {
             #region BaconArgs
-            public class BaconArgs { static public Bag parse(string a) { return (new Parser()).parseArgs(a); } public class Parser { static Dictionary<string, Bag> h = new Dictionary<string, Bag>(); public Bag parseArgs(string a) { if (!h.ContainsKey(a)) { Bag b = new Bag(); var c = false; var d = false; var e = new StringBuilder(); for (int f = 0; f < a.Length; f++) { var g = a[f]; if (c) { e.Append(g); c = false; } else if (g.Equals('\\')) c = true; else if (d && !g.Equals('"')) e.Append(g); else if (g.Equals('"')) d = !d; else if (g.Equals(' ')) { b.add(e.ToString()); e.Clear(); } else e.Append(g); } if (e.Length > 0) b.add(e.ToString()); h.Add(a, b); } return h[a]; } } public class Bag { protected Dictionary<char, int> h = new Dictionary<char, int>(); protected List<string> i = new List<string>(); protected Dictionary<string, List<string>> j = new Dictionary<string, List<string>>(); public List<string> getArguments() { return i; } public int getFlag(char a) { return h.ContainsKey(a) ? h[a] : 0; } public List<string> getOption(string a) { return j.ContainsKey(a) ? j[a] : new List<string>(); } public void add(string a) { if (!a.StartsWith("-")) i.Add(a); else if (a.StartsWith("--")) { KeyValuePair<string, string> b = k(a); var c = b.Key.Substring(2); if (!j.ContainsKey(c)) j.Add(c, new List<string>()); j[c].Add(b.Value); } else { var b = a.Substring(1); for (int d = 0; d < b.Length; d++) if (this.h.ContainsKey(b[d])) { this.h[b[d]]++; } else { this.h.Add(b[d], 1); } } } KeyValuePair<string, string> k(string a) { string[] b = a.Split(new char[] { '=' }, 2); return new KeyValuePair<string, string>(b[0], (b.Length > 1) ? b[1] : null); } override public string ToString() { var a = new List<string>(); foreach (string key in j.Keys) a.Add(l(key) + ":[" + string.Join(",", j[key].ConvertAll<string>(b => l(b)).ToArray()) + "]"); var c = new List<string>(); foreach (char key in h.Keys) c.Add(key + ":" + h[key].ToString()); var d = new StringBuilder(); d.Append("{\"a\":["); d.Append(string.Join(",", i.ConvertAll<string>(b => l(b)).ToArray())); d.Append("],\"o\":[{"); d.Append(string.Join("},{", a)); d.Append("}],\"f\":[{"); d.Append(string.Join("},{", c)); d.Append("}]}"); return d.ToString(); } string l(string a) { return (a != null) ? "\"" + a.Replace(@"\", @"\\").Replace(@"""", @"\""") + "\"" : @"null"; } } }
+            public class BaconArgs { static public BaconArgs parse(string a) { return (new Parser()).parseArgs(a); } public class Parser { static Dictionary<string, BaconArgs> h = new Dictionary<string, BaconArgs>(); public BaconArgs parseArgs(string a) { if (!h.ContainsKey(a)) { var b = new BaconArgs(); var c = false; var d = false; var e = new StringBuilder(); for (int f = 0; f < a.Length; f++) { var g = a[f]; if (c) { e.Append(g); c = false; } else if (g.Equals('\\')) c = true; else if (d && !g.Equals('"')) e.Append(g); else if (g.Equals('"')) d = !d; else if (g.Equals(' ')) { b.add(e.ToString()); e.Clear(); } else e.Append(g); } if (e.Length > 0) b.add(e.ToString()); h.Add(a, b); } return h[a]; } } protected Dictionary<char, int> h = new Dictionary<char, int>(); protected List<string> i = new List<string>(); protected Dictionary<string, List<string>> j = new Dictionary<string, List<string>>(); public List<string> getArguments() { return i; } public int getFlag(char a) { return h.ContainsKey(a) ? h[a] : 0; } public List<string> getOption(string a) { return j.ContainsKey(a) ? j[a] : new List<string>(); } public void add(string a) { if (!a.StartsWith("-")) i.Add(a); else if (a.StartsWith("--")) { KeyValuePair<string, string> b = k(a); var c = b.Key.Substring(2); if (!j.ContainsKey(c)) j.Add(c, new List<string>()); j[c].Add(b.Value); } else { var b = a.Substring(1); for (int d = 0; d < b.Length; d++) if (this.h.ContainsKey(b[d])) { this.h[b[d]]++; } else { this.h.Add(b[d], 1); } } } KeyValuePair<string, string> k(string a) { string[] b = a.Split(new char[] { '=' }, 2); return new KeyValuePair<string, string>(b[0], (b.Length > 1) ? b[1] : null); } override public string ToString() { var a = new List<string>(); foreach (string key in j.Keys) a.Add(l(key) + ":[" + string.Join(",", j[key].ConvertAll<string>(b => l(b)).ToArray()) + "]"); var c = new List<string>(); foreach (char key in h.Keys) c.Add(key + ":" + h[key].ToString()); var d = new StringBuilder(); d.Append("{\"a\":["); d.Append(string.Join(",", i.ConvertAll<string>(b => l(b)).ToArray())); d.Append("],\"o\":[{"); d.Append(string.Join("},{", a)); d.Append("}],\"f\":[{"); d.Append(string.Join("},{", c)); d.Append("}]}"); return d.ToString(); } string l(string a) { return (a != null) ? "\"" + a.Replace(@"\", @"\\").Replace(@"""", @"\""") + "\"" : @"null"; } }
             #endregion BaconArgs
         }
         #endregion End of  Game Code - Copy/Paste Code from this region into Block Script Window in Game
