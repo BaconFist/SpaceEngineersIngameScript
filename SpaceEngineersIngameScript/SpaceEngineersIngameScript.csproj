@@ -33,11 +33,9 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Scripts\BaconDraw.cs" />
-    <Compile Include="Scripts\LcdDraw.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Scripts\BaconsGravityDrive.cs" />
     <Compile Include="Scripts\BaconSort.cs" />
-    <Compile Include="Scripts\DotmatrixLCD.cs" />
     <Compile Include="Scripts\Snippet_BaconArgs.cs" />
     <Compile Include="Scripts\snippet_BaconDebug.cs" />
     <Compile Include="Scripts\Snippet_DetailedInfo.cs" />
