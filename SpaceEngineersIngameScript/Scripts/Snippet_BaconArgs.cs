@@ -68,25 +68,25 @@ namespace Snippet_BaconArgs
         public class BaconArgs
         {
             /*
-                BaconArgs.Bag ArgBag = BaconArgs.parse(@"argument\ 1 --opt1=val1 --opt1=val2 --opt1 --opt2 --opt2=""value 2"" -flags -f -s ""argument 2""");
+                BaconArgs Args = BaconArgs.parse(@"argument\ 1 --opt1=val1 --opt1=val2 --opt1 --opt2 --opt2=""value 2"" -flags -f -s ""argument 2""");
                 //acces flags:
-                    ArgBag.getFlag('f'); // (int)2
-                    ArgBag.getFlag('l'); // (int)1
-                    ArgBag.getFlag('a'); // (int)1
-                    ArgBag.getFlag('g'); // (int)1
-                    ArgBag.getFlag('s'); // (int)2
-                    ArgBag.getFlag('m'); // (int)0
+                    Args.getFlag('f'); // (int)2
+                    Args.getFlag('l'); // (int)1
+                    Args.getFlag('a'); // (int)1
+                    Args.getFlag('g'); // (int)1
+                    Args.getFlag('s'); // (int)2
+                    Args.getFlag('m'); // (int)0
                 //access arguments:
-                    ArgBag.getArguments(); // (List<string>)["argument 1", "argument 2"]
+                    Args.getArguments(); // (List<string>)["argument 1", "argument 2"]
                 //acces options:
-                    ArgBag.getOption("opt1"); // (List<string>)["val1", null]
-                    ArgBag.getOption("opt2"); // (List<string>)[null, "value 2"]
+                    Args.getOption("opt1"); // (List<string>)["val1", null]
+                    Args.getOption("opt2"); // (List<string>)[null, "value 2"]
                 //dump all the stuff
-                    ArgBag.ToString(); // outputs a valid json object
+                    Args.ToString(); // outputs a valid json object
                 //check if option is set
-                    (ArgBag.getOption("opt1").Count > 0); // true if there is any --opt1
-                    (ArgBag.getFlag('g') > 0); // true if tehere is at least one 'g' flag
-                    (ArgBag.getArguments().Count > 0); // true if ther is any argument
+                    (Args.getOption("opt1").Count > 0); // true if there is any --opt1
+                    (Args.getFlag('g') > 0); // true if tehere is at least one 'g' flag
+                    (Args.getArguments().Count > 0); // true if ther is any argument
                 //some explonation:
                     getFlag(char flag) shows how often a flag is found
                     getOption(string option) gives a list of all the values assigned to this option (will be an empty list if the option is not set
