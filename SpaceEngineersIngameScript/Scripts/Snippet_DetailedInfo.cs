@@ -97,6 +97,11 @@ namespace Snippet_DetailedInfo
             }
         }
 
+        public class min
+        {
+            class DetailedInfo { private List<DetailedInfoValue> s = new List<DetailedInfoValue>();public DetailedInfo(IMyTerminalBlock B){ string[] I = B.DetailedInfo.Split(new string[] { "\r\n", "\n\r", "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries);for (int i = 0;i < I.Length;i++){ List<string> d = new List<string>();d.AddRange(I[i].Split(':'));if (d.Count > 1){ s.Add(new DetailedInfoValue(d[0], String.Join(":", d.GetRange(1, d.Count - 1))));}}}public DetailedInfoValue getValue(int i){ return (i < s.Count && i > -1)? s[i] : null;}public class DetailedInfoValue { public string k;public string v;public DetailedInfoValue(string k, string v){ this.k = k;this.v = v;}}}
+        }
+
         #endregion End of  Game Code - Copy/Paste Code from this region into Block Script Window in Game
     }
 }
