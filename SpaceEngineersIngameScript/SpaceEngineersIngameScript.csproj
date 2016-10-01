@@ -35,6 +35,7 @@
     <Compile Include="Scripts\BaconCLI.cs" />
     <Compile Include="Scripts\BaconDraw.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Scripts\MassBlockRenamer.cs" />
     <Compile Include="Scripts\snippet_BaconMonoText.cs" />
     <Compile Include="Scripts\BaconsGravityDrive.cs" />
     <Compile Include="Scripts\BaconSort.cs" />
