@@ -34,15 +34,15 @@
   <ItemGroup>
     <Compile Include="Scripts\BaconDraw.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Scripts\BaconFontWidthCalc.cs" />
+    <Compile Include="Scripts\Snippet_BaconFontWidthCalc.cs" />
     <Compile Include="Scripts\MassBlockRenamer.cs" />
     <Compile Include="Scripts\BaconShell.cs" />
     <Compile Include="Scripts\Snippet_BaconFormat.cs" />
-    <Compile Include="Scripts\snippet_BaconMonoText.cs" />
+    <Compile Include="Scripts\Snippet_BaconMonoText.cs" />
     <Compile Include="Scripts\BaconsGravityDrive.cs" />
     <Compile Include="Scripts\BaconSort.cs" />
     <Compile Include="Scripts\Snippet_BaconArgs.cs" />
-    <Compile Include="Scripts\snippet_BaconDebug.cs" />
+    <Compile Include="Scripts\Snippet_BaconDebug.cs" />
     <Compile Include="Scripts\Snippet_DetailedInfo.cs" />
     <Compile Include="Template\IngameScript.cs" />
   </ItemGroup>
