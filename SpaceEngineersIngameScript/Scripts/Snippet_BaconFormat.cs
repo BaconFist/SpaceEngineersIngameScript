@@ -17,42 +17,6 @@ namespace Snippet_BaconFormat
     public class Program : MyGridProgram
     {
         #region Game Code - Copy/Paste Code from this region into Block Script Window in Game
-
-        /**
-        Snippet_BaconFormat
-        ==============
-        Copyright 2016 Thomas Klose <thomas@bratler.net>
-        License: https://github.com/BaconFist/SpaceEngineersIngameScript/blob/master/LICENSE
-
-        Description
-        ===========
-
-        */
-
-        public Program()
-        {
-
-            // The constructor, called only once every session and
-            // always before any other method is called. Use it to
-            // initialize your script. 
-            //     
-            // The constructor is optional and can be removed if not
-            // needed.
-
-        }
-
-        public void Save()
-        {
-
-            // Called when the program needs to save its state. Use
-            // this method to save your state to the Storage field
-            // or some other means. 
-            // 
-            // This method is optional and can be removed if not
-            // needed.
-
-        }
-
         public void Main(string argument)
         {
             // The main entry point of the script, invoked every time
