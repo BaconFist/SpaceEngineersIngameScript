@@ -12,7 +12,7 @@ using VRage.Game.ObjectBuilders.Definitions; // VRage.Game.dll
 using VRage.Game.ModAPI.Ingame; // VRage.Game.dll
 using SpaceEngineers.Game.ModAPI.Ingame; // SpacenEngineers.Game.dll
 
-namespace BaconFontWidthCalc
+namespace Snippet_BaconFontWidthCalc
 {
     public class Program : MyGridProgram
     {
