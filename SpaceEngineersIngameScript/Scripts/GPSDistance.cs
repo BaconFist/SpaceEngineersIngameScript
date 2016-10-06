@@ -44,30 +44,63 @@ namespace GPSDistance
         public void Main(string argument)
         {
             TAG = (argument.Trim().Length > 0) ? argument : TAG;
+            IMyShipController OriginCockpit = findPilotedCockpit();
+            Vector3D origin = (OriginCockpit != null) ? OriginCockpit.GetPosition() : Me.GetPosition();
             List<IMyRemoteControl> RemoteControls = new List<IMyRemoteControl>();
-            List<IMyTextPanel> Panels = new List<IMyTextPanel>();
+            List<IMyTextPanel> TextPanels = new List<IMyTextPanel>();
             GridTerminalSystem.GetBlocksOfType<IMyRemoteControl>(RemoteControls, (x => x.CubeGrid.Equals(Me.CubeGrid) && x.CustomName.Contains(TAG)));
-            GridTerminalSystem.GetBlocksOfType<IMyTextPanel>(Panels, (x => x.CubeGrid.Equals(Me.CubeGrid) && x.CustomName.Contains(TAG)));
-            if (Panels.Count > 0 && RemoteControls.Count > 0)
+            GridTerminalSystem.GetBlocksOfType<IMyTextPanel>(TextPanels, (x => x.CubeGrid.Equals(Me.CubeGrid) && x.CustomName.Contains(TAG)));
+            if (TextPanels.Count > 0 && RemoteControls.Count > 0)
             {
                 StringBuilder Distances = new StringBuilder();
-                foreach (IMyRemoteControl RC in RemoteControls)
+                foreach (IMyRemoteControl RemoteControl in RemoteControls)
                 {
-                    List<MyWaypointInfo> WPs = new List<MyWaypointInfo>();
-                    RC.GetWaypointInfo(WPs);
-                    foreach (MyWaypointInfo WP in WPs)
+                    List<MyWaypointInfo> Waypoints = new List<MyWaypointInfo>();
+                    RemoteControl.GetWaypointInfo(Waypoints);
+                    foreach (MyWaypointInfo Waypoint in Waypoints)
                     {
-                        Distances.AppendLine(WP.Name + " => " + Math.Round(Vector3D.Distance(Me.GetPosition(), WP.Coords), 2).ToString("### ### ### ###.00") + "m");
+                        Distances.AppendLine(formatDistance(Vector3D.Distance(origin, Waypoint.Coords)) + ": " + Waypoint.Name);                        
                     }
                 }
-                foreach(IMyTextPanel P in Panels)
+                foreach(IMyTextPanel TextPanel in TextPanels)
                 {
-                    P.WritePublicText(((P.GetPublicTitle().Trim().Length > 0)? P.GetPublicTitle().Trim() +"\n":"") + Distances.ToString());
-                    P.ShowPublicTextOnScreen();
+                    TextPanel.WritePublicText(((TextPanel.GetPublicTitle().Trim().Length > 0)? TextPanel.GetPublicTitle().Trim() +"\n":"") + Distances.ToString());
+                    TextPanel.ShowPublicTextOnScreen();
                 }
             }
         }
 
+        private IMyShipController findPilotedCockpit()
+        {
+            List<IMyShipController> Cockpits = new List<IMyShipController>();
+            GridTerminalSystem.GetBlocksOfType<IMyShipController>(Cockpits, (x=> x.IsUnderControl && x.CubeGrid.Equals(Me.CubeGrid)));
+
+            return (Cockpits.Count > 0) ? Cockpits[0] : null;
+        }
+
+        const double DIST_LS = 299792458;
+        const double DIST_MM = 1000000;
+        const double DIST_KM = 1000;
+        private string formatDistance(double distance)
+        {
+            string label = " m ";
+            double buffer = distance;
+            if (buffer >= DIST_LS)
+            {
+                buffer /= DIST_LS;
+                label = " ls";
+            } else if (buffer > DIST_MM)
+            {
+                buffer /= DIST_MM;
+                label = " Mm";
+            } else if(buffer > DIST_KM)
+            {
+                buffer /= DIST_KM;
+                label = " km";
+            }
+            return Math.Round(buffer, 2).ToString("### ### ### ###.00") + label;
+        }
+        
         #endregion End of  Game Code - Copy/Paste Code from this region into Block Script Window in Game
     }
 }
