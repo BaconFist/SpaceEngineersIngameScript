@@ -68,7 +68,14 @@ namespace Snippet_BaconArgs
         public class BaconArgs
         {
             /*
-                BaconArgs Args = BaconArgs.parse(@"argument\ 1 --opt1=val1 --opt1=val2 --opt1 --opt2 --opt2=""value 2"" -flags -f -s ""argument 2""");
+                --option=value => option with values => always start with `--`
+                --option => option without value (will be saved with a `null` value)
+                -a => Flag => starts with `-`
+                arguments => anything not starting with a `-`
+                -- => terminate argument parsing, all after this will be considered as one argument
+                    
+                Example:
+                BaconArgs Args = BaconArgs.parse(@"argument\ 1 --opt1=val1 --opt1=val2 --opt1 --opt2 --opt2=""value 2"" -flags -f -s ""argument 2"" -- all the stuff after -- will be parsed as one argument");
                 //acces flags:
                     Args.getFlag('f'); // (int)2
                     Args.getFlag('l'); // (int)1
@@ -77,7 +84,7 @@ namespace Snippet_BaconArgs
                     Args.getFlag('s'); // (int)2
                     Args.getFlag('m'); // (int)0
                 //access arguments:
-                    Args.getArguments(); // (List<string>)["argument 1", "argument 2"]
+                    Args.getArguments(); // (List<string>)["argument 1", "argument 2", "all the stuff after -- will be parsed as one argument"]
                 //acces options:
                     Args.getOption("opt1"); // (List<string>)["val1", null]
                     Args.getOption("opt2"); // (List<string>)[null, "value 2"]
@@ -96,6 +103,16 @@ namespace Snippet_BaconArgs
             static public BaconArgs parse(string args)
             {
                 return (new Parser()).parseArgs(args);
+            }
+
+            static public string Escape(string value)
+            {
+                return value.Replace(@"\", @"\\").Replace(@" ", @"\ ").Replace(@"""",@"\""");
+            }
+
+            static public string UnEscape(string value)
+            {
+                return value.Replace(@"\""", @"""").Replace(@"\ ", @" ").Replace(@"\\", @"\");
             }
 
             public class Parser
@@ -131,8 +148,16 @@ namespace Snippet_BaconArgs
                             }
                             else if (glyp.Equals(' '))
                             {
-                                Result.add(slug.ToString());
-                                slug.Clear();
+                                if (slug.ToString().Equals("--"))
+                                {
+                                    Result.add(args.Substring(i).TrimStart());
+                                    slug.Clear();
+                                    break;
+                                }
+                                else {
+                                    Result.add(slug.ToString());
+                                    slug.Clear();
+                                }
                             }
                             else
                             {
@@ -240,7 +265,7 @@ namespace Snippet_BaconArgs
         class minified
         {
             #region BaconArgs
-            public class BaconArgs { static public BaconArgs parse(string a) { return (new Parser()).parseArgs(a); } public class Parser { static Dictionary<string, BaconArgs> h = new Dictionary<string, BaconArgs>(); public BaconArgs parseArgs(string a) { if (!h.ContainsKey(a)) { var b = new BaconArgs(); var c = false; var d = false; var e = new StringBuilder(); for (int f = 0; f < a.Length; f++) { var g = a[f]; if (c) { e.Append(g); c = false; } else if (g.Equals('\\')) c = true; else if (d && !g.Equals('"')) e.Append(g); else if (g.Equals('"')) d = !d; else if (g.Equals(' ')) { b.add(e.ToString()); e.Clear(); } else e.Append(g); } if (e.Length > 0) b.add(e.ToString()); h.Add(a, b); } return h[a]; } } protected Dictionary<char, int> h = new Dictionary<char, int>(); protected List<string> i = new List<string>(); protected Dictionary<string, List<string>> j = new Dictionary<string, List<string>>(); public List<string> getArguments() { return i; } public int getFlag(char a) { return h.ContainsKey(a) ? h[a] : 0; } public List<string> getOption(string a) { return j.ContainsKey(a) ? j[a] : new List<string>(); } public void add(string a) { if (!a.StartsWith("-")) i.Add(a); else if (a.StartsWith("--")) { KeyValuePair<string, string> b = k(a); var c = b.Key.Substring(2); if (!j.ContainsKey(c)) j.Add(c, new List<string>()); j[c].Add(b.Value); } else { var b = a.Substring(1); for (int d = 0; d < b.Length; d++) if (this.h.ContainsKey(b[d])) { this.h[b[d]]++; } else { this.h.Add(b[d], 1); } } } KeyValuePair<string, string> k(string a) { string[] b = a.Split(new char[] { '=' }, 2); return new KeyValuePair<string, string>(b[0], (b.Length > 1) ? b[1] : null); } override public string ToString() { var a = new List<string>(); foreach (string key in j.Keys) a.Add(l(key) + ":[" + string.Join(",", j[key].ConvertAll<string>(b => l(b)).ToArray()) + "]"); var c = new List<string>(); foreach (char key in h.Keys) c.Add(key + ":" + h[key].ToString()); var d = new StringBuilder(); d.Append("{\"a\":["); d.Append(string.Join(",", i.ConvertAll<string>(b => l(b)).ToArray())); d.Append("],\"o\":[{"); d.Append(string.Join("},{", a)); d.Append("}],\"f\":[{"); d.Append(string.Join("},{", c)); d.Append("}]}"); return d.ToString(); } string l(string a) { return (a != null) ? "\"" + a.Replace(@"\", @"\\").Replace(@"""", @"\""") + "\"" : @"null"; } }
+            public class BaconArgs { static public BaconArgs parse(string a) { return (new Parser()).parseArgs(a); } static public string Escape(string a) { return a.Replace(@"\", @"\\").Replace(@" ", @"\ ").Replace(@"""", @"\"""); } static public string UnEscape(string a) { return a.Replace(@"\""", @"""").Replace(@"\ ", @" ").Replace(@"\\", @"\"); } public class Parser { static Dictionary<string, BaconArgs> h = new Dictionary<string, BaconArgs>(); public BaconArgs parseArgs(string a) { if (!h.ContainsKey(a)) { var b = new BaconArgs(); var c = false; var d = false; var e = new StringBuilder(); for (int f = 0; f < a.Length; f++) { var g = a[f]; if (c) { e.Append(g); c = false; } else if (g.Equals('\\')) c = true; else if (d && !g.Equals('"')) e.Append(g); else if (g.Equals('"')) d = !d; else if (g.Equals(' ')) if (e.ToString().Equals("--")) { b.add(a.Substring(f).TrimStart()); e.Clear(); break; } else { b.add(e.ToString()); e.Clear(); } else e.Append(g); } if (e.Length > 0) b.add(e.ToString()); h.Add(a, b); } return h[a]; } } protected Dictionary<char, int> h = new Dictionary<char, int>(); protected List<string> i = new List<string>(); protected Dictionary<string, List<string>> j = new Dictionary<string, List<string>>(); public List<string> getArguments() { return i; } public int getFlag(char a) { return h.ContainsKey(a) ? h[a] : 0; } public List<string> getOption(string a) { return j.ContainsKey(a) ? j[a] : new List<string>(); } public void add(string a) { if (!a.StartsWith("-")) i.Add(a); else if (a.StartsWith("--")) { KeyValuePair<string, string> b = k(a); var c = b.Key.Substring(2); if (!j.ContainsKey(c)) j.Add(c, new List<string>()); j[c].Add(b.Value); } else { var b = a.Substring(1); for (int d = 0; d < b.Length; d++) if (this.h.ContainsKey(b[d])) { this.h[b[d]]++; } else { this.h.Add(b[d], 1); } } } KeyValuePair<string, string> k(string a) { string[] b = a.Split(new char[] { '=' }, 2); return new KeyValuePair<string, string>(b[0], (b.Length > 1) ? b[1] : null); } string l(string a) { return (a != null) ? "\"" + a.Replace(@"\", @"\\").Replace(@"""", @"\""") + "\"" : @"null"; } }
             #endregion BaconArgs
         }
         #endregion End of  Game Code - Copy/Paste Code from this region into Block Script Window in Game

@@ -12,7 +12,7 @@ using VRage.Game.ObjectBuilders.Definitions; // VRage.Game.dll
 using VRage.Game.ModAPI.Ingame; // VRage.Game.dll
 using SpaceEngineers.Game.ModAPI.Ingame; // SpacenEngineers.Game.dll
 
-namespace snippet_BaconDebug
+namespace Snippet_BaconDebug
 {
     public class Program : MyGridProgram
     {
