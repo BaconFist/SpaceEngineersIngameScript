@@ -26,7 +26,17 @@ namespace GPSDistance
 
         Description
         ===========
-        
+        Show distance to GPS Waypoints in LCD-Panels
+
+          Setup:
+            1. Load script to Programable Block and run it repeatedly with a Timer Block
+            2. Add "[GPSDistance]" to the Remote Control with the Waypoints to Display
+            3. Add "[GPSDistance]" to the LCD-Panel to display the distances on
+          
+          Tweaks:
+            * change [GPSDistance] to you needs by passing something else as an argument
+            * PublicTitle will be displayed as Heading in the LCD. Clear it to hide it.
+            * Change Sorting of Waypoints by reordering it in the Remote Control
         */
 
         string TAG = "[GPSDistance]";
@@ -52,7 +62,8 @@ namespace GPSDistance
                 }
                 foreach(IMyTextPanel P in Panels)
                 {
-                    P.WritePublicText(Distances.ToString());
+                    P.WritePublicText(((P.GetPublicTitle().Trim().Length > 0)? P.GetPublicTitle().Trim() +"\n":"") + Distances.ToString());
+                    P.ShowPublicTextOnScreen();
                 }
             }
         }
