@@ -25,27 +25,27 @@ namespace BaconSort
         License: https://github.com/BaconFist/SpaceEngineersIngameScript/blob/master/LICENSE
         Source: https://github.com/BaconFist/SpaceEngineersIngameScript/blob/master/SpaceEngineersIngameScript/Scripts/BaconSort.cs
 
-        Description
-        ===========
-        Inventory Sorting
-            - Sort Items by tags in the Blockname
-                    Tags: #ammo, #component, #bottle, #ingot, #ore, #handtool
-            - Ignores all Reactors by default
-            - Ignores all containers with "#!BaconSort" in their Name
+Description
+===========
+Inventory Sorting
+    - Sort Items by tags in the Blockname
+            Tags: #ammo, #component, #bottle, #ingot, #ore, #handtool
+    - Ignores all Reactors by default
+    - Ignores all containers with "#!BaconSort" in their Name
  
-            How it works: 
-            * Add any tag to a Container with an Inventory to pull items of this type in it. 
-            * Script is lazy, it will sort a item only if it is not in a Container with a matching tag. (Example: It will not pull an SteelPlate from an container called "Large Cargo Container #component") 
-            * Source & Target Block must match some requirements: 1. Same Grid as PB, 2. Must be connected throug Conveyor-System, 4. Must be Enabled aka turned ON 
+    How it works: 
+    * Add any tag to a Container with an Inventory to pull items of this type in it. 
+    * Script is lazy, it will sort a item only if it is not in a Container with a matching tag. (Example: It will not pull an SteelPlate from an container called "Large Cargo Container #component") 
+    * Source & Target Block must match some requirements: 1. Same Grid as PB, 2. Must be connected throug Conveyor-System, 4. Must be Enabled aka turned ON 
              
              
-            Known Bugs: 
-            * not working with Hydrogen Tanks. (will fix this as soon as i know why.) 
+    Known Bugs: 
+    * not working with Hydrogen Tanks. (will fix this as soon as i know why.) 
                                  
-           Example 
-           ------------------------------ 
-            Blocks: "Cargo 1 #ingot #ammo", "Cargo 2 #component", Cargo 3" 
-            This will try to sort all Ingots and ammo in Cargo 1 and all components in Cargo 2. 
+    Example 
+    ------------------------------ 
+    Blocks: "Cargo 1 #ingot #ammo", "Cargo 2 #component", Cargo 3" 
+    This will try to sort all Ingots and ammo in Cargo 1 and all components in Cargo 2. 
 
 
         */
@@ -53,15 +53,19 @@ namespace BaconSort
         // BEGIN - settings
         const bool IGNORE_REACTOR = true; // when set to true, this script will ignore all reactors to prevent power loss.
         const string IGNORE_TAG = "#!BaconSort"; // every Block with this in its name will be ignores
-        const double preventExecutionForSeconds = 0; // scipt will not run twice in this timespan. (This is mostly a workaround to the weird behavior of timers on Servers.)
+        const double preventExecutionForSeconds = 180; // scipt will not run twice in this 
+                                                     // timespan. (This is mostly a workaround
+                                                     // to the weird behavior of timers on Servers.)
         // END - settings
 
         // BEGIN - LOG settings
         const bool LOG = true; // enabel disable Logging at all
-        const string LOG_SCREEN = null; // the log will be displayed on any LCD of the PBs Grid with this in name. set to `null` to disable it.
-        const int LOG_LEVEL = 1; // can be any of LOG_LEVEL_*, where higher number means more verbose Log.
+        private string LOG_SCREEN = null; // the log will be displayed on any LCD of the PBs Grid with this in name. set to `null` to disable it.
+        private int LOG_LEVEL = 1; // can be any of LOG_LEVEL_*, where higher number means more verbose Log.
         const string LOG_MODE = ""; // can be used to log funcion calls asn return values, this WILL cause massive lag and is for development purpose only.
         // BEGIN - LOG settings
+
+        // DONT CHANGE ANYTHING BELOW --------------------------------------------
 
         const int LOG_LEVEL_ECHO = 1;
         const int LOG_LEVEL_INFO = 2;
@@ -70,8 +74,6 @@ namespace BaconSort
 
         const string LOG_MODE_FUNCTIONCALL = "[FUNCTIONCALL]";
         const string LOG_MODE_RETURN = "[RETURN]";
-
-        private int logIndex = 0;
 
         static public Dictionary<string, string> s_TypeTagMap = null;
         static public List<string> s_Tags = null;
@@ -103,7 +105,8 @@ namespace BaconSort
                 doSortAll(SourceBlocks, DestinationBlocksMap, TypeMap);
                 Log_Return("Main", "void");
             }
-            Log("Script END (" + Runtime.LastRunTimeMs.ToString() + "ms)", LOG_LEVEL_ECHO);
+            if (LOG_LEVEL == LOG_LEVEL_ECHO) { Log("Script END", LOG_LEVEL_ECHO); }
+            Log("Script END (" + Runtime.LastRunTimeMs.ToString() + "ms)", LOG_LEVEL_DEBUG);
         }
 
         private bool doExecute()
@@ -112,7 +115,7 @@ namespace BaconSort
             bool result = false;
 
             timeToWait = timeToWait - Runtime.TimeSinceLastRun.TotalSeconds;
-            Log("Time to Wait: " + timeToWait.ToString(), LOG_LEVEL_ECHO);
+            Log("Time to Wait: " + Math.Round(timeToWait, 2).ToString("0.##"), LOG_LEVEL_ECHO);
             if (timeToWait > 0)
             {
                 result = false;
