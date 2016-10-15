@@ -251,6 +251,31 @@ namespace Snippet_BaconArgs
                 return new KeyValuePair<string, string>(pair[0], (pair.Length > 1) ? pair[1] : null);
             }
 
+            public string ToArguments()
+            {
+                List<string> slug = new List<string>();
+                foreach(string argument in this.getArguments())
+                {
+                    slug.Add(Escape(argument));
+                }
+                foreach(KeyValuePair<string, List<string>> option in this.Options)
+                {
+                    string optKey = "--" + Escape(option.Key);
+                    foreach (string optVal in option.Value)
+                    {
+                        slug.Add(optKey + ((optVal != null)?"="+Escape(optVal):""));
+                    }
+                }
+                string flagslug = (Flags.Count > 0)?"-":"";
+                foreach(KeyValuePair<char, int> flag in Flags)
+                {
+                    flagslug += new String(flag.Key, flag.Value);                    
+                }
+                slug.Add(flagslug);
+
+                return String.Join(" ", slug.ToArray());
+            }
+
             override public string ToString()
             {
                 List<string> opts = new List<string>();
