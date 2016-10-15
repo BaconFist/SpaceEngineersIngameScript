@@ -53,15 +53,33 @@ namespace Snippet_BaconArgs
 
         }
 
+
+        /*
+            example implementation for BaconArgs:
+            run the PB with 
+                --source="TextPanel 1" --destination="TextPanel 2"
+            to copy PublicText from TextPanel 1 to TextPanel 2
+        */
         public void Main(string argument)
         {
-            // The main entry point of the script, invoked every time
-            // one of the programmable block's Run actions are invoked.
-            // 
-            // The method itself is required, but the argument above
-            // can be removed if not needed.
+            // parse PB arguments with Baconargs
+            BaconArgs Args = BaconArgs.parse(argument);
 
+            // validate if there is one --source and one --destination option given
+            // as you can see the options are accessed without the leading --
+            if (Args.getOption("source").Count == 1 && Args.getOption("destination").Count == 1)
+            {
+                // get the TextPanels using --source and --destination options
+                // as options saved as a List<string> they are accessed like getOption("the option name")[zero-based-index]
+                IMyTextPanel SourcePanel = GridTerminalSystem.GetBlockWithName(Args.getOption("source")[0]) as IMyTextPanel;
+                IMyTextPanel DestinationPanel = GridTerminalSystem.GetBlockWithName(Args.getOption("destination")[0]) as IMyTextPanel;
 
+                //copy private text from source to destination if both block could be found
+                if (SourcePanel != null && DestinationPanel != null)
+                {
+                    DestinationPanel.WritePublicText(SourcePanel.GetPublicText());
+                }
+            }
         }
 
         #region BaconArgs
