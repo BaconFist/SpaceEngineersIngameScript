@@ -45,10 +45,6 @@ namespace BaconDraw
                         enable debug output for "-vvvv" flags. This additional argument is required because the debugger causes massive Simspeed drop (had down to 0.12)
                 --debug-screen=*value*
                         debuger will write on all TextPanels with *value* in their name
-                                   
-
-
-
         */
         string defaultTag = "[BaconDraw]";
         string defaultDebugTag = "[BaconDraw_DEBUG]";
@@ -56,17 +52,12 @@ namespace BaconDraw
         public Program()
         {
             BaconDebug debug = new BaconDebug("-", GridTerminalSystem, this, 0);
-
         }
 
         public void Main(string argument)
         {
             BaconArgs Args = BaconArgs.parse(argument);
-                        
             BaconDebug debug = createDebugger(Args);
-            debug.autoscroll = false;
-            debug.clearPanels();
-
             BaconDraw BDM = new BaconDraw();
             
             List<string> Tags = Args.getArguments();
@@ -79,6 +70,16 @@ namespace BaconDraw
             } else
             {
                 BDM.updatePanels(defaultTag, GridTerminalSystem, Me.CubeGrid, debug);
+            }
+        }
+
+        void run(BaconArgs Args, BaconDebug debug)
+        {
+            if(Args.getOption("showCommands").Count > 0)
+            {
+                string[] tags = Args.getOption("showCommands").ToArray();
+                List<IMyTextPanel> Panels = new List<IMyTextPanel>();
+                GridTerminalSystem.GetBlocksOfType<IMyTextPanel>(Panels, (p => tags.Any(t => p.CustomName.Contains(t))));
             }
         }
 
