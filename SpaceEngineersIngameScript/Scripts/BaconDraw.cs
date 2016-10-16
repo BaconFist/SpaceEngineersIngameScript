@@ -45,6 +45,8 @@ namespace BaconDraw
                         enable debug output for "-vvvv" flags. This additional argument is required because the debugger causes massive Simspeed drop (had down to 0.12)
                 --debug-screen=*value*
                         debuger will write on all TextPanels with *value* in their name
+                --showCommands="LCD Panel"
+                        display a list of available drawing commands on any "LCD Panel"
         */
         string defaultTag = "[BaconDraw]";
         string defaultDebugTag = "[BaconDraw_DEBUG]";
@@ -77,9 +79,14 @@ namespace BaconDraw
         {
             if(Args.getOption("showCommands").Count > 0)
             {
-                string[] tags = Args.getOption("showCommands").ToArray();
                 List<IMyTextPanel> Panels = new List<IMyTextPanel>();
-                GridTerminalSystem.GetBlocksOfType<IMyTextPanel>(Panels, (p => tags.Any(t => p.CustomName.Contains(t))));
+                foreach(string tag in Args.getOption("showCommands"))
+                {
+                    List<IMyTextPanel> panelCollectBuffer = new List<IMyTextPanel>();
+                    GridTerminalSystem.GetBlocksOfType<IMyTextPanel>(panelCollectBuffer, (p => p.CustomName.Contains(tag) && p.CubeGrid.Equals(Me.CubeGrid)));
+                    Panels.AddRange(panelCollectBuffer);
+                    panelCollectBuffer.Clear();
+                }
             }
         }
 
@@ -299,10 +306,18 @@ namespace BaconDraw
                 private Font defaultFont = null;
                 static private Dictionary<string, Font> FontParsingCache = new Dictionary<string, Font>();
                 static private Dictionary<string, Font> Fonts = new Dictionary<string, Font>();
+                private Dictionary<string, string> DrawingCommands = new Dictionary<string, string>();
 
                 public VectorScriptParser(BaconDebug debug)
                 {
-                    defaultFont = this.parseFontFromByDefinition(defaultFontDefinition, debug);
+                    defaultFont = this.parseFontdefinition(defaultFontDefinition, debug);
+                    DrawingCommands.Add("MoveTo X,Y", "moves position to X,Y without drawing");
+                    DrawingCommands.Add("LineTo X,Y", "draws a line ");
+                    DrawingCommands.Add("Color COLOR", "changes color");
+                    DrawingCommands.Add("Rect X,Y", "draws a rectangl from last position to X,Y");
+                    DrawingCommands.Add("Circle RADIUS", "draw a circle with RADIUS at current position");
+                    DrawingCommands.Add("Text FONT|- CONTENT", "wite CONTENT using FONT on current position. Unknown FONT will fallback to default one.");
+                    DrawingCommands.Add("Font NAME DEFINITION", "define a font to bee used with `Text`. (detailed information in the Guide.)");
                 }
 
                 public void parseLine(string line, Canvas canvas, Draw draw, BaconDebug debug)
@@ -358,7 +373,7 @@ namespace BaconDraw
                     string[] argv = line.Split(new char[] {' '}, 2);
                     if (argv.Length == 2 && !Fonts.ContainsKey(argv[0]))
                     {
-                        Font tmp = parseFontFromByDefinition(argv[1], debug);
+                        Font tmp = parseFontdefinition(argv[1], debug);
                         if(tmp != null)
                         {
                             Fonts.Add(argv[0], tmp);
@@ -366,7 +381,7 @@ namespace BaconDraw
                     }
                 }
 
-                public Font parseFontFromByDefinition(string defintion, BaconDebug debug)
+                public Font parseFontdefinition(string defintion, BaconDebug debug)
                 {
                     debug.newScope("VectorScriptParser.parseFontFromByDefinition");
                     if (!VectorScriptParser.FontParsingCache.ContainsKey(defintion))
