@@ -33,6 +33,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Scripts\GPSDistance.cs" />
+    <Compile Include="Scripts\ItemConsumption.cs" />
     <Compile Include="Scripts\Snippet_BaconMessages.cs" />
     <Compile Include="Scripts\Snippet_BaconSerialize.cs" />
     <Compile Include="Scripts\BaconDraw.cs" />
