@@ -60,6 +60,7 @@ namespace BaconDraw
         {
             BaconArgs Args = BaconArgs.parse(argument);
             BaconDebug debug = createDebugger(Args);
+           // debug.autoscroll = false;
             BaconDraw BDM = new BaconDraw();
             
             List<string> Tags = Args.getArguments();
@@ -137,12 +138,14 @@ namespace BaconDraw
 
                 if (hasPanelChanged(Panel))
                 {
-                    resetPanel(Panel, debug, PanelArgs);
+                    debug.add("Panel changed/new => RESET", BaconDebug.DEBUG);
+                    resetPanel(Panel, debug, PanelArgs);                    
                 }
 
                 if (isPanelInProgress(Panel))
                 {
-                    continueTask(Panel, BaconDraw.DrawingTasks[Panel.EntityId], PanelArgs, debug);
+                    debug.add("Panel in progress => CONTINUE", BaconDebug.DEBUG);
+                    continueTask(Panel, BaconDraw.DrawingTasks[Panel.EntityId], PanelArgs, debug);                    
                 }
 
                 debug.leaveScope();
@@ -192,7 +195,7 @@ namespace BaconDraw
 
             private bool hasPanelChanged(IMyTextPanel Panel)
             {
-                return (!(BaconDraw.PanelLastState.ContainsKey(Panel.EntityId) && BaconDraw.PanelLastState[Panel.EntityId].Equals((Panel.GetValueFloat("FontSize") + Panel.GetPrivateText()).GetHashCode())));
+                return (!(BaconDraw.PanelLastState.ContainsKey(Panel.EntityId) && BaconDraw.PanelLastState[Panel.EntityId].Equals((string.Format("[{0}][{1}]", Panel.GetValueFloat("FontSize"), Panel.GetPrivateText())).GetHashCode())));
             }
 
             private void resetPanel(IMyTextPanel Panel, BaconDebug debug, BaconArgs PanelArgs)
@@ -669,8 +672,8 @@ namespace BaconDraw
                 private Point pos = new Point(0, 0);
                 private int width;
                 private int height;
-                private char color = '\uE00E';
-                private char background = '\uE00F';
+                private char color = 'l';
+                private char background = 'd';
                 public char Background { get { return background; } set { background = value; } }
                 public char Color { get { return color; } set { color = value; } }
 
@@ -828,12 +831,12 @@ namespace BaconDraw
 
                 static public string convertRawImage(Canvas canvas)
                 {
-                    StringBuilder image = new StringBuilder((new System.Text.RegularExpressions.Regex(@"[^gbrywld]", System.Text.RegularExpressions.RegexOptions.IgnoreCase)).Replace(canvas.ToStringRaw().ToLowerInvariant(), PLACEHOLDER_BG.ToString()));
-                    foreach(KeyValuePair<char,char> color in map)
+                    StringBuilder image = new StringBuilder((new System.Text.RegularExpressions.Regex(@"[^gbrywld\n]", System.Text.RegularExpressions.RegexOptions.IgnoreCase)).Replace(canvas.ToStringRaw().ToLowerInvariant(), PLACEHOLDER_BG.ToString()));
+                    image = image.Replace(PLACEHOLDER_BG, canvas.Background);
+                    foreach (KeyValuePair<char,char> color in map)
                     {
                         image = image.Replace(color.Key,color.Value);
-                    }
-                    image = image.Replace(PLACEHOLDER_BG, canvas.Background);
+                    }                   
 
                     return image.ToString();
                 }
