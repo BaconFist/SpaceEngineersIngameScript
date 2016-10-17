@@ -142,13 +142,13 @@ namespace BaconDraw
 
                 if (isPanelInProgress(Panel))
                 {
-                    continueTask(Panel, BaconDraw.DrawingTasks[Panel.EntityId], debug);
+                    continueTask(Panel, BaconDraw.DrawingTasks[Panel.EntityId], PanelArgs, debug);
                 }
 
                 debug.leaveScope();
             }
 
-            private void continueTask(IMyTextPanel Panel, DrawingTask Task, BaconDebug debug)
+            private void continueTask(IMyTextPanel Panel, DrawingTask Task, BaconArgs Args,BaconDebug debug)
             {
                 debug.newScope("continueTask");
                 debug.add("continue Task " + Panel.EntityId.ToString() + " (" + Panel.CustomName + ")", BaconDebug.INFO);
@@ -174,7 +174,7 @@ namespace BaconDraw
                     debug.add("Task stopped -> Instructionlimit reached: " + debug.remainingInstructions.ToString(), BaconDebug.INFO);
                 }
 
-                Panel.WritePublicText(Task.canvas.ToString(), false);
+                Panel.WritePublicText((Args.getOption("raw").Count > 0)?Task.canvas.ToStringRaw():Task.canvas.ToString(), false);
                 Panel.ShowPublicTextOnScreen();
 
                 if (Task.currentLine >= script.Length)
@@ -314,6 +314,7 @@ namespace BaconDraw
                     DrawingCommands.Add("MoveTo X,Y", "moves position to X,Y without drawing");
                     DrawingCommands.Add("LineTo X,Y", "draws a line ");
                     DrawingCommands.Add("Color COLOR", "changes color");
+                    DrawingCommands.Add("Background COLOR", "changes background color. (!) this will always override the old Backround color"); 
                     DrawingCommands.Add("Rect X,Y", "draws a rectangl from last position to X,Y");
                     DrawingCommands.Add("Circle RADIUS", "draw a circle with RADIUS at current position");
                     DrawingCommands.Add("Text FONT|- CONTENT", "wite CONTENT using FONT on current position. Unknown FONT will fallback to default one.");
@@ -341,7 +342,7 @@ namespace BaconDraw
                                 parseCircle(args, canvas, draw);
                                 break;
                             case "color":
-                                parseColor(args, canvas, draw);
+                                parseColor(args, canvas, draw, debug);
                                 break;
                             case "moveto":
                                 parseMoveTo(args, canvas, draw);
@@ -354,6 +355,9 @@ namespace BaconDraw
                                 break;
                             case "font":
                                 parseFont(args, debug);
+                                break;
+                            case "background":
+                                parseBackground(args, canvas, draw, debug);
                                 break;
                             default:
                                 debug.add("skipping unknown command: " + cmd + " ARGS: " + args, BaconDebug.WARN);
@@ -492,10 +496,20 @@ namespace BaconDraw
                     }
                 }
 
-                private void parseColor(string args, Canvas canvas, Draw draw)
+                private void parseBackground(string args, Canvas canvas, Draw draw, BaconDebug debug)
                 {
-                    draw.color(args, canvas);
+                    debug.newScope("parseBackground");
+                    canvas.Background = Color.getColorCode(args, debug);
+                    debug.leaveScope();
                 }
+
+                private void parseColor(string args, Canvas canvas, Draw draw, BaconDebug debug)
+                {
+                    debug.newScope("parseColor");
+                    draw.color(Color.getColorCode(args, debug), canvas);
+                    debug.leaveScope();
+                }
+
 
                 private void parseMoveTo(string args, Canvas canvas, Draw draw)
                 {
@@ -592,9 +606,9 @@ namespace BaconDraw
                     canvas.add(new Point(o.X + -x, o.Y + y), false);
                 }
 
-                public void color(string color, Canvas canvas)
+                public void color(char color, Canvas canvas)
                 {
-                    canvas.setColor(Color.get(color));
+                    canvas.setColor(color);
                 }
 
                 public void moveTo(Point P, Canvas canvas)
@@ -656,23 +670,20 @@ namespace BaconDraw
                 private int width;
                 private int height;
                 private char color = '\uE00E';
+                private char background = '\uE00F';
+                public char Background { get { return background; } set { background = value; } }
+                public char Color { get { return color; } set { color = value; } }
 
                 private Char[][] data; // h*x > y,x
-
-                public Canvas(int w, int h) : this(w, h, '\uE00F')
+                
+                public Canvas(int w, int h)
                 {
-                }
-
-                public Canvas(int w, int h, char bgColor)
-                {
-                    char bg = bgColor;
-
                     width = w;
                     height = h;
                     data = new Char[h][];
                     for (int i = 0; i < h; i++)
                     {
-                        data[i] = (new String(bg, w)).ToCharArray();
+                        data[i] = (new String(BaconDraw.Color.PLACEHOLDER_BG, w)).ToCharArray();
                     }
                 }
 
@@ -718,7 +729,7 @@ namespace BaconDraw
                     this.pos = P;
                 }
 
-                public override string ToString()
+                public string ToStringRaw()
                 {
                     StringBuilder slug = new StringBuilder();
                     for (int h = 0; h < data.Length; h++)
@@ -726,6 +737,11 @@ namespace BaconDraw
                         slug.AppendLine(new String(data[h]));
                     }
                     return slug.ToString();
+                }
+
+                public override string ToString()
+                {
+                    return BaconDraw.Color.convertRawImage(this);
                 }
             }
 
@@ -808,12 +824,45 @@ namespace BaconDraw
                     {'d','\uE00F'},
                 };
 
-                public const char DEFAULT = '\uE006';
+                public const char PLACEHOLDER_BG = '0';
 
-                static public char get(string col)
+                static public string convertRawImage(Canvas canvas)
                 {
-                    char key = (col.Length > 0) ? col.ToLower()[0] : DEFAULT;
-                    return (map.ContainsKey(key)) ? map[key] : DEFAULT;
+                    StringBuilder image = new StringBuilder((new System.Text.RegularExpressions.Regex(@"[^gbrywld]", System.Text.RegularExpressions.RegexOptions.IgnoreCase)).Replace(canvas.ToStringRaw().ToLowerInvariant(), PLACEHOLDER_BG.ToString()));
+                    foreach(KeyValuePair<char,char> color in map)
+                    {
+                        image = image.Replace(color.Key,color.Value);
+                    }
+                    image = image.Replace(PLACEHOLDER_BG, canvas.Background);
+
+                    return image.ToString();
+                }
+
+                static public char getColorCode(string args, BaconDebug debug)
+                {
+                    debug.newScope("getColorCode");
+                    string raw = args.Trim();
+                    char value = '1';
+                    if ((new System.Text.RegularExpressions.Regex(@"^(\\u[0-9a-f]{4})|(U\+[0-9a-f]{4})$").IsMatch(raw)))
+                    {
+                        int ord;
+                        if (int.TryParse(raw.Substring(2), out ord))
+                        {
+                            value = (char)ord;
+                            debug.add(string.Format("Found unicode Character: {0} => '{1}'", raw, value), BaconDebug.DEBUG);
+                        }
+                    }
+                    else if (raw.Length > 0)
+                    {
+                        value = raw[0];
+                        debug.add(string.Format("Matching Color: {0} => '{1}'", raw, value), BaconDebug.DEBUG);
+                    }
+                    else
+                    {
+                        debug.add(string.Format("No matching Color => using default: {0} => '{1}'", raw, value), BaconDebug.DEBUG);
+                    }
+                    debug.leaveScope();
+                    return value;
                 }
             }
         }
