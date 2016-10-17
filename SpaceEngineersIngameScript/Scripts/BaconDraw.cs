@@ -31,6 +31,8 @@ namespace BaconDraw
             PB-ARGUMENT:
                 Everything not starting with a "-" is interpreted as a TAG for a TextPanel to draw on. 
 
+                --rawOutput
+                        display image with Raw values (displays 'r' and 'y' instead of actual colored spots)
                 -v      
                         show Errors on debug screen
                 -vv     
@@ -61,7 +63,7 @@ namespace BaconDraw
             BaconArgs Args = BaconArgs.parse(argument);
             BaconDebug debug = createDebugger(Args);
            // debug.autoscroll = false;
-            BaconDraw BDM = new BaconDraw();
+            BaconDraw BDM = new BaconDraw(Args);
             
             List<string> Tags = Args.getArguments();
             if(Tags.Count > 0)
@@ -110,6 +112,12 @@ namespace BaconDraw
         class BaconDraw {
             static private DrawingTask DrawingTasks = new DrawingTask(null);
             static private Dictionary<long, int> PanelLastState = new Dictionary<long, int>();
+            private BaconArgs PBArgs;
+
+            public BaconDraw(BaconArgs pbArgs)
+            {
+                PBArgs = pbArgs;
+            }
 
             public void updatePanels(string tag, IMyGridTerminalSystem GTS, IMyCubeGrid CG, BaconDebug debug)
             {
@@ -177,7 +185,7 @@ namespace BaconDraw
                     debug.add("Task stopped -> Instructionlimit reached: " + debug.remainingInstructions.ToString(), BaconDebug.INFO);
                 }
 
-                Panel.WritePublicText((Args.getOption("raw").Count > 0)?Task.canvas.ToStringRaw():Task.canvas.ToString(), false);
+                Panel.WritePublicText((PBArgs.getOption("rawOutput").Count > 0)?Task.canvas.ToStringRaw():Task.canvas.ToString(), false);
                 Panel.ShowPublicTextOnScreen();
 
                 if (Task.currentLine >= script.Length)
