@@ -108,7 +108,7 @@ namespace BaconDraw
                 int pc = 0;
                 for(int i=0;i<Args.getOption("help").Count;i++)
                 {
-                    if(Args.getOption("help")[i] == null)
+                    if(Args.getOption("help")?[i] == null)
                     {
                         continue;
                     }
