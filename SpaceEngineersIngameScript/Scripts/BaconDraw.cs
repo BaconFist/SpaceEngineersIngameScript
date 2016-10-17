@@ -47,7 +47,7 @@ namespace BaconDraw
                         enable debug output for "-vvvv" flags. This additional argument is required because the debugger causes massive Simspeed drop (had down to 0.12)
                 --debug-screen=*value*
                         debuger will write on all TextPanels with *value* in their name
-                --showCommands="LCD Panel"
+                --help="LCD Panel"
                         display a list of available drawing commands on any "LCD Panel"
         */
         string defaultTag = "[BaconDraw]";
@@ -64,7 +64,8 @@ namespace BaconDraw
             BaconDebug debug = createDebugger(Args);
            // debug.autoscroll = false;
             BaconDraw BDM = new BaconDraw(Args);
-            
+            help(Args, debug);
+
             List<string> Tags = Args.getArguments();
             if(Tags.Count > 0)
             {
@@ -78,17 +79,52 @@ namespace BaconDraw
             }
         }
 
-        void run(BaconArgs Args, BaconDebug debug)
+        void help(BaconArgs Args, BaconDebug debug)
         {
-            if(Args.getOption("showCommands").Count > 0)
+            if(Args.getOption("help")?.Count > 0)
             {
-                List<IMyTextPanel> Panels = new List<IMyTextPanel>();
-                foreach(string tag in Args.getOption("showCommands"))
+                
+                string help = (new StringBuilder())
+                    .AppendLine("Bacon Draw - Help (LCD Commands)")
+                    .AppendLine("--------------------------------")
+                    .AppendLine("MoveTo X,Y")
+                    .AppendLine("     moves position to X,Y without drawing")
+                    .AppendLine("LineTo X,Y")
+                    .AppendLine("     draws a line ")
+                    .AppendLine("Color COLOR")
+                    .AppendLine("     changes color")
+                    .AppendLine("Background COLOR")
+                    .AppendLine("     changes background color. (!) this will always override the old Backround color")
+                    .AppendLine("Rect X,Y")
+                    .AppendLine("     draws a rectangl from last position to X,Y")
+                    .AppendLine("Circle RADIUS")
+                    .AppendLine("     draw a circle with RADIUS at current position")
+                    .AppendLine("Text FONT|- CONTENT")
+                    .AppendLine("     wite CONTENT using FONT on current position. Unknown FONT will fallback to default one.")
+                    .AppendLine("Font NAME DEFINITION")
+                    .AppendLine("     define a font to bee usd with `Text`. (detailed information in the Guide.)")
+                .ToString();
+
+                int pc = 0;
+                for(int i=0;i<Args.getOption("help").Count;i++)
                 {
-                    List<IMyTextPanel> panelCollectBuffer = new List<IMyTextPanel>();
-                    GridTerminalSystem.GetBlocksOfType<IMyTextPanel>(panelCollectBuffer, (p => p.CustomName.Contains(tag) && p.CubeGrid.Equals(Me.CubeGrid)));
-                    Panels.AddRange(panelCollectBuffer);
-                    panelCollectBuffer.Clear();
+                    if(Args.getOption("help")[i] == null)
+                    {
+                        continue;
+                    }
+                    string tag = Args.getOption("help")[i];
+                    List<IMyTextPanel> Panels = new List<IMyTextPanel>();
+                    GridTerminalSystem.GetBlocksOfType<IMyTextPanel>(Panels, (p => p.CustomName.Contains(tag) && p.CubeGrid.Equals(Me.CubeGrid)));
+                    pc += Panels.Count;
+                    foreach(IMyTextPanel Panel in Panels)
+                    {
+                        Panel.WritePrivateText(help);
+                        Panel.ShowPrivateTextOnScreen();
+                    }
+                }
+                if(pc == 0)
+                {
+                    Echo("you must specify a LCD with --help=\"some lcd\" to display the Help on it.");
                 }
             }
         }
@@ -317,19 +353,11 @@ namespace BaconDraw
                 private Font defaultFont = null;
                 static private Dictionary<string, Font> FontParsingCache = new Dictionary<string, Font>();
                 static private Dictionary<string, Font> Fonts = new Dictionary<string, Font>();
-                private Dictionary<string, string> DrawingCommands = new Dictionary<string, string>();
 
                 public VectorScriptParser(BaconDebug debug)
                 {
                     defaultFont = this.parseFontdefinition(defaultFontDefinition, debug);
-                    DrawingCommands.Add("MoveTo X,Y", "moves position to X,Y without drawing");
-                    DrawingCommands.Add("LineTo X,Y", "draws a line ");
-                    DrawingCommands.Add("Color COLOR", "changes color");
-                    DrawingCommands.Add("Background COLOR", "changes background color. (!) this will always override the old Backround color"); 
-                    DrawingCommands.Add("Rect X,Y", "draws a rectangl from last position to X,Y");
-                    DrawingCommands.Add("Circle RADIUS", "draw a circle with RADIUS at current position");
-                    DrawingCommands.Add("Text FONT|- CONTENT", "wite CONTENT using FONT on current position. Unknown FONT will fallback to default one.");
-                    DrawingCommands.Add("Font NAME DEFINITION", "define a font to bee used with `Text`. (detailed information in the Guide.)");
+
                 }
 
                 public void parseLine(string line, Canvas canvas, Draw draw, BaconDebug debug)
