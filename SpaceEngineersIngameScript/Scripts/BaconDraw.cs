@@ -52,6 +52,7 @@ namespace BaconDraw
         */
         string defaultTag = "[BaconDraw]";
         string defaultDebugTag = "[BaconDraw_DEBUG]";
+        const string ignoreGridScope = "[BaconDrawIgnoreGrid]";
 
         public Program()
         {
@@ -159,7 +160,7 @@ namespace BaconDraw
             {
                 debug.newScope("BaconDotmatrix.updatePanels");
                 List<IMyTextPanel> Panels = new List<IMyTextPanel>();
-                GTS.GetBlocksOfType<IMyTextPanel>(Panels, (x => x.CustomName.Contains(tag) && x.CubeGrid.Equals(CG)));
+                GTS.GetBlocksOfType<IMyTextPanel>(Panels, (x => x.CustomName.Contains(tag) && (x.CubeGrid.Equals(CG) || x.CustomName.Contains(Program.ignoreGridScope))));
                 if (Panels.Count > 0)
                 {
                     debug.add("found " + Panels.Count.ToString() + " BaconDraw Panels", BaconDebug.DEBUG);
