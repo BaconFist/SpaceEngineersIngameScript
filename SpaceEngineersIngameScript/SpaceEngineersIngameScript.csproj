@@ -35,6 +35,7 @@
     <Compile Include="Scripts\DoorInterlock.cs" />
     <Compile Include="Scripts\GPSDistance.cs" />
     <Compile Include="Scripts\ItemConsumption.cs" />
+    <Compile Include="Scripts\ShipyardGateControl.cs" />
     <Compile Include="Scripts\Snippet_BaconMessages.cs" />
     <Compile Include="Scripts\Snippet_BaconSerialize.cs" />
     <Compile Include="Scripts\BaconDraw.cs" />
