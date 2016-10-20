@@ -158,7 +158,7 @@ namespace Snippet_BaconDebug
                 if (verbosity <= this.verbosity)
                 {
                     string newLogEntry = buildLine(msg);
-                    if (verbosity == ERROR)
+                    if (verbosity >= ERROR)
                     {
                         GridProgram.Echo(newLogEntry);
                     }
