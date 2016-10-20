@@ -32,44 +32,44 @@ namespace BD_Refactor
         public void Main(string argument)
         {
             BMyEnvironment Environment = bootstrap(BaconArgs.parse(argument));
-            Environment.Debug.autoscroll = false;
-            Environment.Debug.clearPanels();
-            Environment.Debug.newScope("Main");
+            Environment.Log.autoscroll = false;
+            Environment.Log.clearPanels();
+            Environment.Log.newScope("Main");
             BMyInterpreter Interpreter = new BMyInterpreter(Environment);
             BMyTransaction<BMyEnvironment> EnvironmentTransaction = new BMyTransaction<BMyEnvironment>(Environment);
             string[] tags = (Environment.GlobalArgs.getArguments().Count > 0) ? Environment.GlobalArgs.getArguments().ToArray() : new string[] {"[BaconDraw]"};
-            Environment.Debug.Debug("Tag(s): {0}", string.Join(",", tags));
+            Environment.Log.Debug("Tag(s): {0}", string.Join(",", tags));
             foreach (string tag in tags)
             {
                 List<IMyTextPanel> Panels = new List<IMyTextPanel>();
                 GridTerminalSystem.GetBlocksOfType<IMyTextPanel>(Panels, (P=>P.CustomName.Contains(tag) && (P.CubeGrid.Equals(Me.CubeGrid) || P.CustomName.Contains("[BaconDrawIgnoreGrid]"))));
-                Environment.Debug.Debug("Progressing tag \"{0}\" found {1} Panel(s)", tag, Panels.Count);
+                Environment.Log.Debug("Progressing tag \"{0}\" found {1} Panel(s)", tag, Panels.Count);
                 foreach (IMyTextPanel Panel in Panels)
                 {
-                    Environment.Debug.Debug("Progressing Panel \"{0}\"", Panel.CustomName);
+                    Environment.Log.Debug("Progressing Panel \"{0}\"", Panel.CustomName);
                     Environment.DrawPlugins.TryRequirePlugins(BaconArgs.parse(Panel.GetPrivateTitle()));
                     string[] plugins = Environment.DrawPlugins.getLoadedPlugins();
-                    Environment.Debug.Debug("Loaded plugins({0}/{1}): [{2}]", plugins.Length, Environment.DrawPlugins.AvailabelPlugins.Count, string.Join("],[", plugins));
+                    Environment.Log.Debug("Loaded plugins({0}/{1}): [{2}]", plugins.Length, Environment.DrawPlugins.AvailabelPlugins.Count, string.Join("],[", plugins));
                     BMyCanvas canvas = new BMyCanvas(100,100,Environment);
                     Interpreter.ParseScript(Panel.GetPrivateText(), ref canvas);
                     Panel.WritePublicText(canvas.ToString());
                     Environment = EnvironmentTransaction.Revert();
                 }
             }
-            Environment.Debug.Debug(" - END - ");
-            Environment.Debug.leaveScope();
+            Environment.Log.Debug(" - END - ");
+            Environment.Log.leaveScope();
         }
 
         #region bootstrap
         BMyEnvironment bootstrap(BaconArgs Args)
         {
             BMyEnvironment Env = new BMyEnvironment(this, Args, getDebugger(Args));
-            Env.Debug.newScope("bootstrap");
+            Env.Log.newScope("bootstrap");
             #region load plugins
             Env.DrawPlugins.TryRequirePlugins("BaconDraw");
             Env.DrawPlugins.TryRequirePlugins(Env.GlobalArgs);
             #endregion load plugins
-            Env.Debug.leaveScope();
+            Env.Log.leaveScope();
             return Env;
         }
 
@@ -101,7 +101,7 @@ namespace BD_Refactor
             public readonly BMyDrawPluginHandler DrawPlugins;
             public readonly Program Global;
             public readonly BaconArgs GlobalArgs;
-            public readonly BaconDebug Debug;
+            public readonly BaconDebug Log;
             public readonly Dictionary<string, BMyFont> Fonts;
             public readonly BMyColor Color;
 
@@ -110,7 +110,7 @@ namespace BD_Refactor
                 Debug.newScope("BMyEnvironment.BMyEnvironment");
                 this.Global = Global;
                 this.GlobalArgs = GlobalArgs;
-                this.Debug = Debug;
+                this.Log = Debug;
                 this.DrawPlugins = new BMyDrawPluginHandler(this);
                 this.Fonts = new Dictionary<string, BMyFont>();
                 this.Color = new BMyColor(this);
@@ -120,14 +120,14 @@ namespace BD_Refactor
 
             public bool TryAddFont(BMyFont font)
             {
-                Debug.newScope("BMyEnvironment.TryAddFont");
+                Log.newScope("BMyEnvironment.TryAddFont");
                 if (Fonts.ContainsKey(font.Name))
                 {
-                    Debug.Debug("there is already a font named \"{0}\"", font.Name);
+                    Log.Debug("there is already a font named \"{0}\"", font.Name);
                 }
                 Fonts.Add(font.Name, font);
-                Debug.Debug("add font \"{0}\"", font.Name);
-                Debug.leaveScope();
+                Log.Debug("add font \"{0}\"", font.Name);
+                Log.leaveScope();
                 return true;
             }
             
@@ -154,21 +154,21 @@ namespace BD_Refactor
 
             public string[] getGlyph(char glyph)
             {
-                Environment.Debug.newScope("BMyFont.getGlyph");
+                Environment.Log.newScope("BMyFont.getGlyph");
                 if (ContainsKey(glyph))
                 {
-                    Environment.Debug.Debug("found char '{0}' in \"{1}\"", glyph, Name);
-                    Environment.Debug.leaveScope();
+                    Environment.Log.Debug("found char '{0}' in \"{1}\"", glyph, Name);
+                    Environment.Log.leaveScope();
                     return this[glyph];
                 }
                 if (Environment.Fonts.ContainsKey(Extends))
                 {
-                    Environment.Debug.Debug("look up in parent font \"{1}\"", Extends);
-                    Environment.Debug.leaveScope();
+                    Environment.Log.Debug("look up in parent font \"{1}\"", Extends);
+                    Environment.Log.leaveScope();
                     return Environment.Fonts[Extends].getGlyph(glyph);
                 }
-                Environment.Debug.Debug("char '{0}' not found in \"{1}\" or one of it's parents", glyph, Name);
-                Environment.Debug.leaveScope();
+                Environment.Log.Debug("char '{0}' not found in \"{1}\" or one of it's parents", glyph, Name);
+                Environment.Log.leaveScope();
                 return new string[] {};
             }
         }
@@ -186,27 +186,27 @@ namespace BD_Refactor
 
             public void ParseScript(string Script, ref BMyCanvas canvas)
             {
-                Environment.Debug.newScope("BMyInterpreter.ParseScript");
+                Environment.Log.newScope("BMyInterpreter.ParseScript");
                 string[] Code = Script.Split(new char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
                 foreach (string commandLine in Code)
                 {
                     BaconArgs Args = BaconArgs.parse(commandLine);
-                    Environment.Debug.Debug("Arguments: `{0}`", Args.ToString());
+                    Environment.Log.Debug("Arguments: `{0}`", Args.ToString());
                     if(Args.getArguments().Count > 0)
                     {
                         if(Environment.DrawPlugins.TryInterpret(Args, ref canvas))
                         {
-                            Environment.Debug.Debug("success parsing: {0}", commandLine);
+                            Environment.Log.Debug("success parsing: {0}", commandLine);
                         } else
                         {
-                            Environment.Debug.Debug("failed parsing: {0}", commandLine);
+                            Environment.Log.Debug("failed parsing: {0}", commandLine);
                         }
                     } else
                     {
-                        Environment.Debug.Debug("skip line, no arguments [\"{0}\"]", commandLine);
+                        Environment.Log.Debug("skip line, no arguments [\"{0}\"]", commandLine);
                     }
                 }
-                Environment.Debug.leaveScope();
+                Environment.Log.leaveScope();
             }
         }
         #endregion INTERPRETER
@@ -222,49 +222,49 @@ namespace BD_Refactor
 
             public BMyCanvas(int width, int height, BMyEnvironment Environment, string content) : this(width, height, Environment)
             {
-                Environment.Debug.newScope("BMyCanvas.Canvas");
+                Environment.Log.newScope("BMyCanvas.Canvas");
                 string[] data = content.Split(new char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
                 for(int i=0;i<data.Length && i < pixels.Length; i++)
                 {
                     pixels[i] = (data[i] + (new string('0', width))).Substring(0,width).ToCharArray();
                 }
-                Environment.Debug.Debug("Filled canvas with exisiting content (lines:{0}; overall length:{1})", data.Length, content.Length);
-                Environment.Debug.leaveScope();
+                Environment.Log.Debug("Filled canvas with exisiting content (lines:{0}; overall length:{1})", data.Length, content.Length);
+                Environment.Log.leaveScope();
             }
 
             public BMyCanvas(int width, int height, BMyEnvironment Environment)
             {
-                Environment.Debug.newScope("BMyCanvas.Canvas");
+                Environment.Log.newScope("BMyCanvas.Canvas");
                 this.Environment = Environment;
                 setPosition(0, 0);
                 Clear(width,height);
-                Environment.Debug.Debug("Created new Canvas with dimensions(BxH) {0}x{1}", width, height);
-                Environment.Debug.leaveScope();
+                Environment.Log.Debug("Created new Canvas with dimensions(BxH) {0}x{1}", width, height);
+                Environment.Log.leaveScope();
             }
 
             public bool TryParseCoords(string value, out Point coords)
             {
-                Environment.Debug.newScope("BMyCanvas.TryParseCoords");
+                Environment.Log.newScope("BMyCanvas.TryParseCoords");
                 string[] raw = value.Split(new char[] {','}, StringSplitOptions.RemoveEmptyEntries);
                 int x = 0;
                 int y = 0;
                 if(raw.Length == 2 && int.TryParse(raw[0], out x) && int.TryParse(raw[1], out y))
                 {
                     coords = new Point(x,y);
-                    Environment.Debug.Debug("Coordinates parsed from \"{0}\" => resulting in {1},{2}", value, coords.X, coords.Y);
-                    Environment.Debug.leaveScope();
+                    Environment.Log.Debug("Coordinates parsed from \"{0}\" => resulting in {1},{2}", value, coords.X, coords.Y);
+                    Environment.Log.leaveScope();
                     return true;
                 }
                 coords = new Point(0,0);
 
-                Environment.Debug.Debug("Can't parse coordinates from \"{0}\" => resulting in {1},{2}", value, coords.X, coords.Y);
-                Environment.Debug.leaveScope();
+                Environment.Log.Debug("Can't parse coordinates from \"{0}\" => resulting in {1},{2}", value, coords.X, coords.Y);
+                Environment.Log.leaveScope();
                 return false;
             }
 
             void Clear(int width, int height)
             {
-                Environment.Debug.newScope("BMyCanvas.Clear");
+                Environment.Log.newScope("BMyCanvas.Clear");
                 width = Math.Max(width, 1);
                 height = Math.Max(height, 1);
                 pixels = new char[height][];
@@ -272,21 +272,21 @@ namespace BD_Refactor
                 {
                     pixels[y] = (new String('0', width)).ToCharArray();
                 }
-                Environment.Debug.leaveScope();
+                Environment.Log.leaveScope();
             }
             
             public void setPixel(int x, int y)
             {
-                Environment.Debug.newScope("BMyCanvas.setPixel");
+                Environment.Log.newScope("BMyCanvas.setPixel");
                 if (0 <= x && x < pixels[0].Length && 0 <= y && y < pixels.Length)
                 {
                     pixels[y][x] = color;
-                    Environment.Debug.Debug("set pixel {1},{2} to {0}", color, x, y);
+                    Environment.Log.Debug("set pixel {1},{2} to {0}", color, x, y);
                 } else
                 {
-                    Environment.Debug.Debug("Point({1},{2}) out of range(X:`[0,{3}[` Y:`[0,{4}[`) => can't assign color '{0}'", color, x, y, pixels[0].Length, pixels.Length);
+                    Environment.Log.Debug("Point({1},{2}) out of range(X:`[0,{3}[` Y:`[0,{4}[`) => can't assign color '{0}'", color, x, y, pixels[0].Length, pixels.Length);
                 }
-                Environment.Debug.leaveScope();
+                Environment.Log.leaveScope();
             }
 
             public Point getPosition()
@@ -296,38 +296,38 @@ namespace BD_Refactor
 
             public void setPosition(int x, int y)
             {
-                Environment.Debug.newScope("BMyCanvas.setPosition");
-                Environment.Debug.Debug("update position to {0},{1}", x, y);
+                Environment.Log.newScope("BMyCanvas.setPosition");
+                Environment.Log.Debug("update position to {0},{1}", x, y);
                 Position = new Point(x,y);
-                Environment.Debug.leaveScope();
+                Environment.Log.leaveScope();
             }
 
             public string ToStringRaw()
             {
-                Environment.Debug.newScope("BMyCanvas.ToStringRaw");
+                Environment.Log.newScope("BMyCanvas.ToStringRaw");
                 List<string> slug = new List<string>();
-                Environment.Debug.Debug("generate raw image");
+                Environment.Log.Debug("generate raw image");
                 foreach (char[] line in pixels)
                 {
                     string buffer = new string(line);
-                    Environment.Debug.Debug("add row: {0}", buffer);
+                    Environment.Log.Debug("add row: {0}", buffer);
                     slug.Add(buffer);
                 }                
-                Environment.Debug.leaveScope();
+                Environment.Log.leaveScope();
                 return string.Join("\n", slug.ToArray());
             }
 
             public override string ToString()
             {
-                Environment.Debug.newScope("BMyCanvas.ToString");
+                Environment.Log.newScope("BMyCanvas.ToString");
                 if(Environment.GlobalArgs.getOption("rawOutput").Count > 0)
                 {
-                    Environment.Debug.leaveScope();
+                    Environment.Log.leaveScope();
                     return ToStringRaw();
                 } else
                 {
-                    Environment.Debug.Debug("generate image");
-                    Environment.Debug.leaveScope();
+                    Environment.Log.Debug("generate image");
+                    Environment.Log.leaveScope();
                     return Environment.Color.ConvertFromRawImage(this);
                 }                
             }
@@ -366,20 +366,20 @@ namespace BD_Refactor
 
             public string ConvertFromRawImage(BMyCanvas canvas)
             {
-                Environment.Debug.newScope("BMyColor.ConvertFromRawImage");
+                Environment.Log.newScope("BMyColor.ConvertFromRawImage");
                 StringBuilder image = new StringBuilder((new System.Text.RegularExpressions.Regex(@"[^gbrywld\n]", System.Text.RegularExpressions.RegexOptions.IgnoreCase)).Replace(canvas.ToStringRaw().ToLowerInvariant(), PLACEHOLDER_BG.ToString()));
                 image = image.Replace(PLACEHOLDER_BG, canvas.background);
                 foreach (KeyValuePair<char, char> color in map)
                 {
                     image = image.Replace(color.Key, color.Value);
                 }
-                Environment.Debug.leaveScope();
+                Environment.Log.leaveScope();
                 return image.ToString();
             }
 
             public char getColorCode(string args)
             {
-                Environment.Debug.newScope("BMyColor.getColorCode");
+                Environment.Log.newScope("BMyColor.getColorCode");
                 string raw = args.Trim();
                 char value = '1';
                 if ((new System.Text.RegularExpressions.Regex(@"^(\\u[0-9a-f]{4})|(U\+[0-9a-f]{4})$").IsMatch(raw)))
@@ -388,19 +388,19 @@ namespace BD_Refactor
                     if (int.TryParse(raw.Substring(2), out ord))
                     {
                         value = (char)ord;
-                        Environment.Debug.Debug("Found unicode Character: {0} => '{1}'", raw, value);
+                        Environment.Log.Debug("Found unicode Character: {0} => '{1}'", raw, value);
                     }
                 }
                 else if (raw.Length > 0)
                 {
                     value = raw[0];
-                    Environment.Debug.Debug("Matching Color: {0} => '{1}'", raw, value);
+                    Environment.Log.Debug("Matching Color: {0} => '{1}'", raw, value);
                 }
                 else
                 {
-                    Environment.Debug.Debug("No matching Color => using default: {0} => '{1}'", raw, value);
+                    Environment.Log.Debug("No matching Color => using default: {0} => '{1}'", raw, value);
                 }
-                Environment.Debug.leaveScope();
+                Environment.Log.leaveScope();
                 return value;
             }
         }
@@ -421,9 +421,9 @@ namespace BD_Refactor
 
             private void bootstrap()
             {
-                Environment.Debug.newScope("BMyDrawPluginHandler.bootstrap");
+                Environment.Log.newScope("BMyDrawPluginHandler.bootstrap");
                 #region DrawPlugin "BaconDraw"
-                Environment.Debug.Debug("Initializing DrawPlugin \"BaconDraw\"");
+                Environment.Log.Debug("Initializing DrawPlugin \"BaconDraw\"");
                 AvailabelPlugins.Add("BaconDraw", new List<BMyDrawPlugin>());
                 AvailabelPlugins["BaconDraw"].Add(new BMyDrawPlugin_BaconDraw_Circle(Environment));
                 AvailabelPlugins["BaconDraw"].Add(new BMyDrawPlugin_BaconDraw_Font(Environment));
@@ -435,7 +435,7 @@ namespace BD_Refactor
                 AvailabelPlugins["BaconDraw"].Add(new BMyDrawPlugin_BaconDraw_Color(Environment));
                 #endregion DrawPlugin "BaconDraw"
 
-                Environment.Debug.leaveScope();
+                Environment.Log.leaveScope();
             }
 
             public string[] getLoadedPlugins()
@@ -461,14 +461,14 @@ namespace BD_Refactor
 
             public bool TryRequirePlugins(params string[] Names)
             {
-                Environment.Debug.newScope("BMyDrawPluginHandler.TryRequirePlugins");
+                Environment.Log.newScope("BMyDrawPluginHandler.TryRequirePlugins");
                 bool required = true;
                 foreach (string Name in Names)
                 {
                     if (!AvailabelPlugins.ContainsKey(Name))
                     {
-                        Environment.Debug.Debug("Plugin \"{0}\" not found", Name);
-                        Environment.Debug.leaveScope();
+                        Environment.Log.Debug("Plugin \"{0}\" not found", Name);
+                        Environment.Log.leaveScope();
                         return false;
                     }
                     bool success = false;
@@ -477,34 +477,34 @@ namespace BD_Refactor
                         if (!TryAddPlugin(Plugin))
                         {
                             success = success || false;
-                            Environment.Debug.Debug("Error loading plugin \"{0}({1})\"", Plugin.Name, Plugin.Command);
+                            Environment.Log.Debug("Error loading plugin \"{0}({1})\"", Plugin.Name, Plugin.Command);
                         }
                     }
                     if (!success)
                     {
-                        Environment.Debug.Debug("Unable to load anything of \"{0}\" plugin", Name);
+                        Environment.Log.Debug("Unable to load anything of \"{0}\" plugin", Name);
                     }
                     required = required && success;
                 }
-                Environment.Debug.leaveScope();
+                Environment.Log.leaveScope();
                 return required;
             }
 
             string[] getRequiredPluginNames(BaconArgs Args)
             {
-                Environment.Debug.newScope("BMyDrawPluginHandler.getRequiredPluginNames");
+                Environment.Log.newScope("BMyDrawPluginHandler.getRequiredPluginNames");
                 List<string> plugins = new List<string>();
                 foreach (string names in Environment.GlobalArgs.getOption("plugin"))
                 {
                     plugins.AddRange(names.Split(','));
                 }
-                Environment.Debug.leaveScope();
+                Environment.Log.leaveScope();
                 return plugins.ToArray();
             }
 
             public bool TryAddPlugin(BMyDrawPlugin Plugin)
             {
-                Environment.Debug.newScope("BMyDrawPluginHandler.AddPlugin");
+                Environment.Log.newScope("BMyDrawPluginHandler.AddPlugin");
                 string command = Plugin.Command.ToLowerInvariant();
                 if (!ContainsKey(command))
                 {
@@ -513,64 +513,64 @@ namespace BD_Refactor
                 if (!this[command].Contains(Plugin))
                 {
                     this[command].Insert(0, Plugin);
-                    Environment.Debug.Debug("Load Plugin \"{1}\" for \"{0}\"", command, Plugin.Name);
-                    Environment.Debug.leaveScope();
+                    Environment.Log.Debug("Load Plugin \"{1}\" for \"{0}\"", command, Plugin.Name);
+                    Environment.Log.leaveScope();
                     return true;
                 }
-                Environment.Debug.Debug("Unable load Plugin \"{1}\" for \"{0}\" => {2}", command, Plugin.Name, (this[command].Contains(Plugin)?"already loaded":"unknown reason"));
-                Environment.Debug.leaveScope();
+                Environment.Log.Debug("Unable load Plugin \"{1}\" for \"{0}\" => {2}", command, Plugin.Name, (this[command].Contains(Plugin)?"already loaded":"unknown reason"));
+                Environment.Log.leaveScope();
                 return false;
             }
 
             public bool TryInterpret(BaconArgs Args, ref BMyCanvas canvas)
             {
-                Environment.Debug.newScope("BMyDrawPluginHandler.TryInterpret");
+                Environment.Log.newScope("BMyDrawPluginHandler.TryInterpret");
                 if(Args.getArguments().Count == 0)
                 {
-                    Environment.Debug.Debug("Skip line (no arguments)");
-                    Environment.Debug.leaveScope();
+                    Environment.Log.Debug("Skip line (no arguments)");
+                    Environment.Log.leaveScope();
                     return false;
                 }
 
                 if (!hasPlugin(Args.getArguments()[0]))
                 {
-                    Environment.Debug.leaveScope();
+                    Environment.Log.leaveScope();
                     return false;
                 }
                 BMyTransaction<BMyCanvas> Buffer = new BMyTransaction<BMyCanvas>(canvas);
 
                 bool success = false;
-                Environment.Debug.Debug("found {0} plugins for {1}", this[Args.getArguments()[0]].Count, Args.getArguments()[0]);
+                Environment.Log.Debug("found {0} plugins for {1}", this[Args.getArguments()[0]].Count, Args.getArguments()[0]);
                 foreach(BMyDrawPlugin Plugin in this[Args.getArguments()[0]])
                 {
                     canvas = Buffer.Revert();
-                    Environment.Debug.Debug("try plugin {0}/{1}", Plugin.Name, Plugin.Command);
-                    Environment.Debug.newScope(string.Format("BMyPluginChainloader(\"{0}/{1}\").isValid", Plugin.Name, Plugin.Command));
+                    Environment.Log.Debug("try plugin {0}/{1}", Plugin.Name, Plugin.Command);
+                    Environment.Log.newScope(string.Format("BMyPluginChainloader(\"{0}/{1}\").isValid", Plugin.Name, Plugin.Command));
                     bool isValid = Plugin.isValid(Args);
-                    Environment.Debug.leaveScope();
+                    Environment.Log.leaveScope();
                     if (isValid)
                     {
-                        Environment.Debug.newScope(string.Format("BMyPluginChainloader(\"{0}/{1}\").TryInterpret", Plugin.Name, Plugin.Command));
+                        Environment.Log.newScope(string.Format("BMyPluginChainloader(\"{0}/{1}\").TryInterpret", Plugin.Name, Plugin.Command));
                         success = Plugin.TryInterpret(Args, ref canvas);
-                        Environment.Debug.leaveScope();
+                        Environment.Log.leaveScope();
                         if (success)
                         {
-                            Environment.Debug.Debug("successfull with plugin {0}/{1}", Plugin.Name, Plugin.Command);
+                            Environment.Log.Debug("successfull with plugin {0}/{1}", Plugin.Name, Plugin.Command);
                             break;
                         }
-                        Environment.Debug.Debug("no success with plugin {0}/{1} => try to continue", Plugin.Name, Plugin.Command);
+                        Environment.Log.Debug("no success with plugin {0}/{1} => try to continue", Plugin.Name, Plugin.Command);
                     }
                 }
-                Environment.Debug.leaveScope();
+                Environment.Log.leaveScope();
                 return success;
             }
 
             public bool hasPlugin(string command)
             {
-                Environment.Debug.newScope("BMyDrawPluginHandler.hasPlugin");
+                Environment.Log.newScope("BMyDrawPluginHandler.hasPlugin");
                 bool contains = ContainsKey(command.ToLowerInvariant());
-                Environment.Debug.Debug("{0}Plugin for \"{1}\"", contains?"":"no ", command);
-                Environment.Debug.leaveScope();
+                Environment.Log.Debug("{0}Plugin for \"{1}\"", contains?"":"no ", command);
+                Environment.Log.leaveScope();
                 return contains;
             }
         }
@@ -603,7 +603,7 @@ namespace BD_Refactor
                 Point dest;
                 if (Args.getArguments().Count < 2 || !canvas.TryParseCoords(Args.getArguments()[1], out dest))
                 {
-                    Environment.Debug.Debug("no valid arguments => can't draw {0}", Command);
+                    Environment.Log.Debug("no valid arguments => can't draw {0}", Command);
                     return false;
                 }
                 Point Position = canvas.getPosition();
@@ -650,7 +650,7 @@ namespace BD_Refactor
                     canvas.setPixel(_x, _y);
                 }
                 canvas.setPosition(_x, _y);
-                Environment.Debug.Debug("draw {2} to {0},{1}", _x, _y, Command);
+                Environment.Log.Debug("draw {2} to {0},{1}", _x, _y, Command);
                 return true;
             }
 
@@ -658,13 +658,13 @@ namespace BD_Refactor
             {
                 if (!(Args.getArguments().Count == 2))
                 {
-                    Environment.Debug.Debug("wrong number of arguments");
+                    Environment.Log.Debug("wrong number of arguments");
                     return false;
                 }
 
                 if (!(new System.Text.RegularExpressions.Regex(@"\d+,\d+")).IsMatch(Args.getArguments()[1]))
                 {
-                    Environment.Debug.Debug("argument in wrong format (must be a number)");
+                    Environment.Log.Debug("argument in wrong format (must be a number)");
                     return false;
                 }
                 return true;
@@ -683,7 +683,7 @@ namespace BD_Refactor
             {
                 if (!Environment.DrawPlugins.hasPlugin("lineto"))
                 {
-                    Environment.Debug.Debug("no plugin for \"lineto\" => can't draw {0}", Command);
+                    Environment.Log.Debug("no plugin for \"lineto\" => can't draw {0}", Command);
                     return false;
                 }
                 for(int i = 1; i < Args.getArguments().Count; i++)
@@ -693,11 +693,11 @@ namespace BD_Refactor
                     LineToArgs.add(Args.getArguments()[i]);
                     if(!Environment.DrawPlugins.TryInterpret(LineToArgs, ref canvas))
                     {
-                        Environment.Debug.Debug("failed drawing line to {0} for {1}", Args.getArguments()[i], Command);
+                        Environment.Log.Debug("failed drawing line to {0} for {1}", Args.getArguments()[i], Command);
                         return false;
                     }
                 }
-                Environment.Debug.Debug("drawed {0}", Command);
+                Environment.Log.Debug("drawed {0}", Command);
                 return true;
             }
 
@@ -705,7 +705,7 @@ namespace BD_Refactor
             {
                 if(Args.getArguments().Count < 2)
                 {
-                    Environment.Debug.Debug("not enough arguments (must be at least 2)");
+                    Environment.Log.Debug("not enough arguments (must be at least 2)");
                     return false;
                 }
                 bool valid = true;
@@ -714,7 +714,7 @@ namespace BD_Refactor
                 {
                     if (!MatchRgx.IsMatch(Args.getArguments()[i]))
                     {
-                        Environment.Debug.Debug("argument[{1}]({0}) invalid. Must be `number,number`", Args.getArguments()[i], i);
+                        Environment.Log.Debug("argument[{1}]({0}) invalid. Must be `number,number`", Args.getArguments()[i], i);
                         valid = false;
                     }
                 }
@@ -732,12 +732,12 @@ namespace BD_Refactor
             {
                 if (!Environment.DrawPlugins.hasPlugin("polygon"))
                 {
-                    Environment.Debug.Debug("no plugin for \"polygon\" => can't draw {0}", Command);
+                    Environment.Log.Debug("no plugin for \"polygon\" => can't draw {0}", Command);
                     return false;
                 }
                 Point dest;
                 if(!canvas.TryParseCoords(Args.getArguments()[1], out dest)){
-                    Environment.Debug.Debug("invalid coordinates {0} => can't draw {1}", Args.getArguments()[1], Command);
+                    Environment.Log.Debug("invalid coordinates {0} => can't draw {1}", Args.getArguments()[1], Command);
                     return false;
                 }
                 BaconArgs PolygonArgs = new BaconArgs();
@@ -748,11 +748,11 @@ namespace BD_Refactor
                 PolygonArgs.add(string.Format("{0},{1}", canvas.getPosition().X, canvas.getPosition().Y));
                 if(!Environment.DrawPlugins.TryInterpret(PolygonArgs, ref canvas))
                 {
-                    Environment.Debug.Debug("failed drawing {0}", Command);
+                    Environment.Log.Debug("failed drawing {0}", Command);
                     return false;
                 }
                 canvas.setPosition(dest.X,dest.Y);
-                Environment.Debug.Debug("drawed a {0} to {1},{2}", Command, dest.X, dest.Y);
+                Environment.Log.Debug("drawed a {0} to {1},{2}", Command, dest.X, dest.Y);
                 return true;
             }
 
@@ -760,13 +760,13 @@ namespace BD_Refactor
             {
                 if (!(Args.getArguments().Count == 2))
                 {
-                    Environment.Debug.Debug("wrong number of arguments");
+                    Environment.Log.Debug("wrong number of arguments");
                     return false;
                 }
 
                 if (!(new System.Text.RegularExpressions.Regex(@"\d+,\d+")).IsMatch(Args.getArguments()[1]))
                 {
-                    Environment.Debug.Debug("argument in wrong format (must be a number)");
+                    Environment.Log.Debug("argument in wrong format (must be a number)");
                     return false;
                 }
 
@@ -785,7 +785,7 @@ namespace BD_Refactor
                 int Radius;
                 if(!int.TryParse(Args.getArguments()[1], out Radius))
                 {
-                    Environment.Debug.Debug("Invalid argument \"{0}\" must be a number", Args.getArguments()[1]);
+                    Environment.Log.Debug("Invalid argument \"{0}\" must be a number", Args.getArguments()[1]);
                     return false;
                 }
                 int d;
@@ -808,7 +808,7 @@ namespace BD_Refactor
                         x = x - 1;
                     }
                 }
-                Environment.Debug.Debug("drawed a {0} with a radius of {1}", Command, Radius);
+                Environment.Log.Debug("drawed a {0} with a radius of {1}", Command, Radius);
                 return true;
             }
 
@@ -816,13 +816,13 @@ namespace BD_Refactor
             {
                 if(!(Args.getArguments().Count == 2))
                 {
-                    Environment.Debug.Debug("wrong number of arguments");
+                    Environment.Log.Debug("wrong number of arguments");
                     return false;
                 }
 
                 if(!(new System.Text.RegularExpressions.Regex(@"\d+")).IsMatch(Args.getArguments()[1]))
                 {
-                    Environment.Debug.Debug("argument in wrong format (must be a number)");
+                    Environment.Log.Debug("argument in wrong format (must be a number)");
                     return false;
                 }
 
@@ -851,18 +851,18 @@ namespace BD_Refactor
             {
                 if(Args.getArguments().Count < 4)
                 {
-                    Environment.Debug.Debug("not enough arguments");
+                    Environment.Log.Debug("not enough arguments");
                     return false;
                 }
                 if (!NameRgx.IsMatch(Args.getArguments()[indexName]))
                 {
-                    Environment.Debug.Debug("invalid argument for fontname `{0}`", Args.getArguments()[indexName]);
+                    Environment.Log.Debug("invalid argument for fontname `{0}`", Args.getArguments()[indexName]);
                     return false;
                 }
 
                 if(!SizeRgx.IsMatch(Args.getArguments()[indexSize]))
                 {
-                    Environment.Debug.Debug("invalid argument for fontsize `{0}`", Args.getArguments()[indexSize]);
+                    Environment.Log.Debug("invalid argument for fontsize `{0}`", Args.getArguments()[indexSize]);
                     return false;
                 }
                 int w;
@@ -870,14 +870,14 @@ namespace BD_Refactor
                 string[] size = Args.getArguments()[indexSize].Split(',');
                 if(!(size.Length == 2) || !int.TryParse(size[0], out w) || !int.TryParse(size[1], out h))
                 {
-                    Environment.Debug.Debug("invalid argument for fontsize `{0}`", Args.getArguments()[indexSize]);
+                    Environment.Log.Debug("invalid argument for fontsize `{0}`", Args.getArguments()[indexSize]);
                 }
                 
                 for(int i = indexChars; i < Args.getArguments().Count; i++)
                 {
                     if (!GlyphRgx.IsMatch(Args.getArguments()[i]))
                     {
-                        Environment.Debug.Debug("Invalid character definition `{0}` at argument #{1}", Args.getArguments()[i], i+1);
+                        Environment.Log.Debug("Invalid character definition `{0}` at argument #{1}", Args.getArguments()[i], i+1);
                         return false;
                     }
                 }
@@ -903,7 +903,7 @@ namespace BD_Refactor
                     string[] data = getData(argument.Substring(indexGlyphData), w, h);
                     font.Add(glyph, data);
                 }
-                Environment.Debug.Debug("new font \"{0}{1}\" with BxH {2}x{3} and {4} characters", font.Name, (extends.Length >0)?":"+font.Extends:"",font.Width,font.Height,font.Count);
+                Environment.Log.Debug("new font \"{0}{1}\" with BxH {2}x{3} and {4} characters", font.Name, (extends.Length >0)?":"+font.Extends:"",font.Width,font.Height,font.Count);
                 return Environment.TryAddFont(font);
             }
 
@@ -937,13 +937,13 @@ namespace BD_Refactor
 
             public override bool isValid(BaconArgs Args)
             {
-                Environment.Debug.Debug("NotImplementedException");
+                Environment.Log.Debug("NotImplementedException");
                 return false;
             }
 
             public override bool TryInterpret(BaconArgs Args, ref BMyCanvas canvas)
             {
-                Environment.Debug.Debug("NotImplementedException");
+                Environment.Log.Debug("NotImplementedException");
                 return false;
             }
         }
@@ -957,7 +957,7 @@ namespace BD_Refactor
             public override bool isValid(BaconArgs Args)
             {
                 if(!(Args.getArguments().Count == 2)){
-                    Environment.Debug.Debug("wrong number of arguments");
+                    Environment.Log.Debug("wrong number of arguments");
                     return false;
                 }
                 return true;
@@ -966,7 +966,7 @@ namespace BD_Refactor
             public override bool TryInterpret(BaconArgs Args, ref BMyCanvas canvas)
             {
                 canvas.background = Environment.Color.getColorCode(Args.getArguments()[1]);
-                Environment.Debug.Debug("interpreted \"{0}\" as color '{1}'", Args.getArguments()[1], canvas.background);
+                Environment.Log.Debug("interpreted \"{0}\" as color '{1}'", Args.getArguments()[1], canvas.background);
                 return true;
             }
         }
@@ -981,7 +981,7 @@ namespace BD_Refactor
             {
                 if (!(Args.getArguments().Count == 2))
                 {
-                    Environment.Debug.Debug("wrong number of arguments");
+                    Environment.Log.Debug("wrong number of arguments");
                     return false;
                 }
                 return true;
@@ -990,7 +990,7 @@ namespace BD_Refactor
             public override bool TryInterpret(BaconArgs Args, ref BMyCanvas canvas)
             {
                 canvas.color = Environment.Color.getColorCode(Args.getArguments()[1]);
-                Environment.Debug.Debug("interpreted \"{0}\" as color '{1}'", Args.getArguments()[1], canvas.color);
+                Environment.Log.Debug("interpreted \"{0}\" as color '{1}'", Args.getArguments()[1], canvas.color);
                 return true;
             }
         }
