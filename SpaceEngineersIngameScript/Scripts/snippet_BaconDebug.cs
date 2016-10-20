@@ -35,6 +35,7 @@ namespace Snippet_BaconDebug
             public const int DEBUG = 4;
             public const int TRACE = 5;
 
+            private const int CHARACTER_LIMIT = 100000; //limitied by the Game itself.
             private List<IMyTextPanel> Panels = new List<IMyTextPanel>();
             private MyGridProgram GridProgram;
             private List<string> callsStack = new List<string>();
@@ -156,45 +157,53 @@ namespace Snippet_BaconDebug
             {
                 if (verbosity <= this.verbosity)
                 {
-                    string debugMsg = buildLine(msg);
+                    string newLogEntry = buildLine(msg);
                     if (verbosity == ERROR)
                     {
-                        GridProgram.Echo(debugMsg);
+                        GridProgram.Echo(newLogEntry);
                     }
                     for (int i = 0; i < Panels.Count; i++)
                     {
-                        if (autoscroll)
-                        {
-                            List<string> lines = new List<string>();
-                            lines.AddRange(Panels[i].GetPublicText().Split(new char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries));
-                            StringBuilder sb = new StringBuilder();
-                            lines.Add(debugMsg);
-                            if (!Panels[i].GetPrivateTitle().ToLower().Equals("nolinelimit"))
-                            {
-                                int maxLines = getMaxLines(Panels[i]);
-                                if (lines.Count > maxLines)
-                                {
-                                    lines.RemoveRange(0, lines.Count - maxLines);
-                                }
-                            }
-                            Panels[i].WritePublicText(string.Join("\n", lines));
-                        } else
-                        {
-                            Panels[i].WritePublicText(debugMsg + '\n', true);
-                        }
+                        List<string> PublicText = new List<string>();
+                        PublicText.AddRange(Panels[i].GetPublicText().Trim().Split(new char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries));
+                        PublicText.Add(newLogEntry);
+                        TrimLines(ref PublicText, getMaxLines(Panels[i]));
+                        string NewPublicTextContentChars = string.Join("\n", PublicText.ToArray());
+                        TrimTextPanelMax(ref NewPublicTextContentChars);
+                        Panels[i].WritePublicText(NewPublicTextContentChars);
                     }
                 }
             }
 
+            private void TrimTextPanelMax(ref string Text)
+            {
+                if(CHARACTER_LIMIT < Text.Length)
+                {
+                    Text = Text.Substring(Text.Length - CHARACTER_LIMIT);
+                    int indexOfNextLinebreak = Text.IndexOf('\n');
+                    Text = Text.Substring(Text.Length - indexOfNextLinebreak).TrimStart(new char[] {'\n','\r' });  
+                }
+            }
+
+            private void TrimLines(ref List<string> PublicText, int limit)
+            {
+                if (autoscroll && 0 < limit && limit < PublicText.Count)
+                {
+                    PublicText.RemoveRange(0,PublicText.Count-limit);
+                }
+            }
+
+
+
             private int getMaxLines(IMyTextPanel Panel)
             {
-                float fs =Panel.GetValueFloat("FontSize");
-                if(fs == 0.0f)
+                float fontSize =Panel.GetValueFloat("FontSize");
+                if(fontSize == 0.0f)
                 {
-                    fs = 0.01f;
+                    fontSize = 0.01f;
                 }
 
-                return Convert.ToInt32(Math.Ceiling(17.0f / fs));
+                return Convert.ToInt32(Math.Ceiling(17.0f / fontSize));
             }
 
             private string buildLine(string msg)
