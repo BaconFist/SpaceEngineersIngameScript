@@ -33,6 +33,7 @@ namespace Snippet_BaconDebug
             public const int WARN = 2;
             public const int ERROR = 1;
             public const int DEBUG = 4;
+            public const int TRACE = 5;
 
             private List<IMyTextPanel> Panels = new List<IMyTextPanel>();
             private MyGridProgram GridProgram;
@@ -96,6 +97,10 @@ namespace Snippet_BaconDebug
                 return callsStack[callsStack.Count-1];
             }
 
+            public void Trace(string msg, params object[] values)
+            {
+                Trace(string.Format(msg, values));
+            }
 
             public void Info(string msg, params object[] values)
             {
@@ -115,6 +120,11 @@ namespace Snippet_BaconDebug
             public void Debug(string msg, params object[] values)
             {
                 Debug(string.Format(msg, values));
+            }
+
+            public void Trace(string msg)
+            {
+                add(msg, TRACE);
             }
 
             public void Info(string msg)
