@@ -17,7 +17,6 @@ namespace BD_Refactor
     public class Program : MyGridProgram
     {
         #region Game Code - Copy/Paste Code from this region into Block Script Window in Game
-
         /**
         BD_Refactor
         ==============
@@ -35,10 +34,13 @@ namespace BD_Refactor
             Environment.Log.autoscroll = false;
             Environment.Log.clearPanels();
             Environment.Log.newScope("Main");
-            BMyInterpreter Interpreter = new BMyInterpreter(Environment);
+
+            BMyTaskHandler TaskHandler = new BMyTaskHandler(Environment);
             BMyTransaction<BMyEnvironment> EnvironmentTransaction = new BMyTransaction<BMyEnvironment>(Environment);
+
             string[] tags = (Environment.GlobalArgs.getArguments().Count > 0) ? Environment.GlobalArgs.getArguments().ToArray() : new string[] {"[BaconDraw]"};
             Environment.Log.Trace("Tag(s): {0}", string.Join(",", tags));
+
             foreach (string tag in tags)
             {
                 List<IMyTextPanel> Panels = new List<IMyTextPanel>();
@@ -46,14 +48,8 @@ namespace BD_Refactor
                 Environment.Log.Trace("Progressing tag \"{0}\" found {1} Panel(s)", tag, Panels.Count);
                 foreach (IMyTextPanel Panel in Panels)
                 {
-                    Environment.Log.Trace("Progressing Panel \"{0}\"", Panel.CustomName);
-                    Environment.DrawPlugins.TryRequirePlugins(BaconArgs.parse(Panel.GetPrivateTitle()));
-                    string[] plugins = Environment.DrawPlugins.getLoadedPlugins();
-                    Environment.Log.Trace("Loaded plugins({0}/{1}): [{2}]", plugins.Length, Environment.DrawPlugins.AvailabelPlugins.Count, string.Join("],[", plugins));
-                    BMyCanvas canvas = new BMyCanvas(100,100,Environment);
-                    Interpreter.ParseScript(Panel.GetPrivateText(), ref canvas);
-                    Panel.WritePublicText(canvas.ToString());
                     Environment = EnvironmentTransaction.Revert();
+                    TaskHandler.handlePanel(Panel);
                 }
             }
             Environment.Log.Trace(" - END - ");
@@ -99,9 +95,49 @@ namespace BD_Refactor
                     break;
             }
             string tag = (Args.getOption("debug-screen").Count > 0) ? Args.getOption("debug-screen")[0] : "[BaconDraw_DEBUG]";
-            return new BaconDebug(tag, GridTerminalSystem, this, verbosity, "BaconDraw");
+            BaconDebug log = new BaconDebug(tag, GridTerminalSystem, this, verbosity, "BaconDraw");
+            log.Format = @"[{0}-{1}.{2}][{3}][IC {5}/{6}][{4}] {7}";
+            return log;
+
         }
         #endregion bootstrap
+
+        #region TASKHANDLER
+        class BMyTaskHandler
+        {
+            public readonly BMyEnvironment Environment;
+            const int INSTRUCTION_SOFT_LIMIT = 20000;
+
+            public BMyTaskHandler(BMyEnvironment Environment)
+            {
+                this.Environment = Environment;
+            }
+
+            public void handlePanel(IMyTextPanel Panel)
+            {
+                Environment.Log.newScope("BMyTaskHandler.handlePanel");
+                Environment.Log.Trace("Progressing Panel \"{0}\"", Panel.CustomName);
+                Environment.DrawPlugins.TryRequirePlugins(BaconArgs.parse(Panel.GetPrivateTitle()));
+                string[] plugins = Environment.DrawPlugins.getLoadedPlugins();
+                Environment.Log.Trace("Loaded plugins({0}/{1}): [{2}]", plugins.Length, Environment.DrawPlugins.AvailabelPlugins.Count, string.Join("],[", plugins));
+
+                BMyCanvas canvas = new BMyCanvas(100, 100, Environment);
+
+                int lastLineParsed = 0;
+                if(!int.TryParse(Panel.GetPrivateTitle(), out lastLineParsed))
+                {
+                    lastLineParsed = 0;
+                }
+                if(Environment.Interpreter.ParseScript(Panel.GetPrivateText(), ref canvas, ref lastLineParsed))
+                {
+                    lastLineParsed = 0;
+                }
+                Panel.WritePrivateTitle(lastLineParsed.ToString());
+                Panel.WritePublicText(canvas.ToString());
+                Environment.Log.leaveScope();
+            }
+        }
+        #endregion TASKHANDLER
 
         #region ENVIRONMENT
         class BMyEnvironment
@@ -112,6 +148,7 @@ namespace BD_Refactor
             public readonly BaconDebug Log;
             public readonly Dictionary<string, BMyFont> Fonts;
             public readonly BMyColor Color;
+            public readonly BMyInterpreter Interpreter;
 
             public BMyEnvironment(Program Global, BaconArgs GlobalArgs, BaconDebug Log)
             {
@@ -122,6 +159,7 @@ namespace BD_Refactor
                 this.DrawPlugins = new BMyDrawPluginHandler(this);
                 this.Fonts = new Dictionary<string, BMyFont>();
                 this.Color = new BMyColor(this);
+                this.Interpreter = new BMyInterpreter(this);
                 Log.Trace("Envionment Initialized");
                 Log.leaveScope();
             }
@@ -192,12 +230,18 @@ namespace BD_Refactor
                 this.Environment = Environment;
             }
 
-            public void ParseScript(string Script, ref BMyCanvas canvas)
+            public bool ParseScript(string Script, ref BMyCanvas canvas, ref int lastLineParsed)
             {
                 Environment.Log.newScope("BMyInterpreter.ParseScript");
                 string[] Code = Script.Split(new char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
-                foreach (string commandLine in Code)
-                {
+                for(int i = lastLineParsed; i < Code.Length; i++) { 
+                    if(Environment.Log.remainingInstructions < 30000)
+                    {
+                        Environment.Log.Trace("drawing delayed to next run at line {0}", lastLineParsed);
+                        break;
+                    }
+
+                    string commandLine = Code[i];
                     BaconArgs Args = BaconArgs.parse(commandLine);
                     Environment.Log.Trace("Arguments: `{0}`", Args.ToString());
                     if(Args.getArguments().Count > 0)
@@ -213,8 +257,10 @@ namespace BD_Refactor
                     {
                         Environment.Log.Trace("skip line, no arguments [\"{0}\"]", commandLine);
                     }
+                    lastLineParsed++;
                 }
                 Environment.Log.leaveScope();
+                return lastLineParsed.Equals(Code.Length);
             }
         }
         #endregion INTERPRETER
@@ -1009,7 +1055,7 @@ namespace BD_Refactor
 
         #region included Libs
         public class BaconArgs { public string InputData; static public BaconArgs parse(string a) { return (new Parser()).parseArgs(a); } static public string Escape(string a) { return a.Replace(@"\", @"\\").Replace(@" ", @"\ ").Replace(@"""", @"\"""); } static public string UnEscape(string a) { return a.Replace(@"\""", @"""").Replace(@"\ ", @" ").Replace(@"\\", @"\"); } public class Parser { static Dictionary<string, BaconArgs> h = new Dictionary<string, BaconArgs>(); public BaconArgs parseArgs(string a) { if (!h.ContainsKey(a)) { var b = new BaconArgs(); b.InputData = a; var c = false; var d = false; var e = new StringBuilder(); for (int f = 0; f < a.Length; f++) { var g = a[f]; if (c) { e.Append(g); c = false; } else if (g.Equals('\\')) c = true; else if (d && !g.Equals('"')) e.Append(g); else if (g.Equals('"')) d = !d; else if (g.Equals(' ')) if (e.ToString().Equals("--")) { b.add(a.Substring(f).TrimStart()); e.Clear(); break; } else { b.add(e.ToString()); e.Clear(); } else e.Append(g); } if (e.Length > 0) b.add(e.ToString()); h.Add(a, b); } return h[a]; } } protected Dictionary<char, int> h = new Dictionary<char, int>(); protected List<string> i = new List<string>(); protected Dictionary<string, List<string>> j = new Dictionary<string, List<string>>(); public List<string> getArguments() { return i; } public int getFlag(char a) { return h.ContainsKey(a) ? h[a] : 0; } public List<string> getOption(string a) { return j.ContainsKey(a) ? j[a] : new List<string>(); } public void add(string a) { if (a.Trim().Length > 0) if (!a.StartsWith("-")) { i.Add(a); } else if (a.StartsWith("--")) { KeyValuePair<string, string> b = k(a); string c = b.Key.Substring(2); if (!j.ContainsKey(c)) { j.Add(c, new List<string>()); } j[c].Add(b.Value); } else { string b = a.Substring(1); for (int d = 0; d < b.Length; d++) { if (this.h.ContainsKey(b[d])) { this.h[b[d]]++; } else { this.h.Add(b[d], 1); } } } } KeyValuePair<string, string> k(string a) { string[] b = a.Split(new char[] { '=' }, 2); return new KeyValuePair<string, string>(b[0], (b.Length > 1) ? b[1] : null); } public string ToArguments() { var a = new List<string>(); foreach (string argument in this.getArguments()) a.Add(Escape(argument)); foreach (KeyValuePair<string, List<string>> option in this.j) { var b = "--" + Escape(option.Key); foreach (string optVal in option.Value) a.Add(b + ((optVal != null) ? "=" + Escape(optVal) : "")); } var c = (h.Count > 0) ? "-" : ""; foreach (KeyValuePair<char, int> flag in h) c += new String(flag.Key, flag.Value); a.Add(c); return String.Join(" ", a.ToArray()); } override public string ToString() { var a = new List<string>(); foreach (string key in j.Keys) a.Add(l(key) + ":[" + string.Join(",", j[key].ConvertAll<string>(b => l(b)).ToArray()) + "]"); var c = new List<string>(); foreach (char key in h.Keys) c.Add(key + ":" + h[key].ToString()); var d = new StringBuilder(); d.Append("{\"a\":["); d.Append(string.Join(",", i.ConvertAll<string>(b => l(b)).ToArray())); d.Append("],\"o\":[{"); d.Append(string.Join("},{", a)); d.Append("}],\"f\":[{"); d.Append(string.Join("},{", c)); d.Append("}]}"); return d.ToString(); } string l(string a) { return (a != null) ? "\"" + a.Replace(@"\", @"\\").Replace(@"""", @"\""") + "\"" : @"null"; } }
-        public class BaconDebug { public const int OFF = 0; public const int FATAL = 1; public const int ERROR = 2; public const int WARN = 3; public const int INFO = 4; public const int DEBUG = 5; public const int TRACE = 6; Dictionary<int, string> h = new Dictionary<int, string>() { { OFF, "OFF" }, { FATAL, "FATAL" }, { ERROR, "ERROR" }, { WARN, "WARN" }, { INFO, "INFO" }, { DEBUG, "DEBUG" }, { TRACE, "TRACE" }, }; List<IMyTextPanel> j = new List<IMyTextPanel>(); MyGridProgram k; List<KeyValuePair<string, long>> l = new List<KeyValuePair<string, long>>(); int m = OFF; bool n = true; public int remainingInstructions { get { return k.Runtime.MaxInstructionCount - k.Runtime.CurrentInstructionCount; } } public bool autoscroll { get { return n; } set { n = value; } } public void clearPanels() { for (int a = 0; a < j.Count; a++) j[a].WritePublicText(""); } public BaconDebug(string a, IMyGridTerminalSystem b, MyGridProgram c, int d, string e = "BaconDebug") { this.m = d; var f = new List<IMyTerminalBlock>(); b.GetBlocksOfType<IMyTextPanel>(f, ((IMyTerminalBlock g) => g.CustomName.Contains(a) && g.CubeGrid.Equals(c.Me.CubeGrid))); j = f.ConvertAll<IMyTextPanel>(g => g as IMyTextPanel); this.k = c; newScope(e); } public int getVerbosity() { return m; } public MyGridProgram getGridProgram() { return this.k; } public void newScope(string a) { l.Add(new KeyValuePair<string, long>(a, DateTime.Now.Ticks)); if (this.m.Equals(TRACE)) this.Trace("STEP INTO SCOPE"); } public void leaveScope() { if (l.Count > 0 && this.m.Equals(TRACE)) this.Trace("LEAVE SCOPE ({0} Ticks)", o(l[l.Count - 1].Value)); if (l.Count > 1) l.RemoveAt(l.Count - 1); } public string getSender() { if (l.Count > 0) if (this.m.Equals(TRACE)) { List<string> a = new List<string>(); foreach (KeyValuePair<string, long> entry in l) { a.Add(entry.Key); } return string.Join(">", a.ToArray()); } else { return l[l.Count - 1].Key; } return "NO SCOPE DEFINED"; } double o(long a) { long b = DateTime.Now.Ticks; return (Math.Max(a, b) - Math.Min(a, b)); } public void Fatal(string a, params object[] b) { Fatal(string.Format(a, b)); } public void Error(string a, params object[] b) { Error(string.Format(a, b)); } public void Warn(string a, params object[] b) { Warn(string.Format(a, b)); } public void Info(string a, params object[] b) { Info(string.Format(a, b)); } public void Debug(string a, params object[] b) { Debug(string.Format(a, b)); } public void Trace(string a, params object[] b) { Trace(string.Format(a, b)); } public void Fatal(string a) { add(a, FATAL); } public void Error(string a) { add(a, ERROR); } public void Warn(string a) { add(a, WARN); } public void Info(string a) { add(a, INFO); } public void Debug(string a) { add(a, DEBUG); } public void Trace(string a) { add(a, TRACE); } public void add(string a, int b) { p(a, b); if (b <= this.m) { var c = t(a, b); for (int d = 0; d < j.Count; d++) { var e = new List<string>(); e.AddRange(j[d].GetPublicText().Trim().Split(new char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)); e.Add(c); r(ref e, s(j[d])); var f = string.Join("\n", e.ToArray()); q(ref f); j[d].WritePublicText(f); } } } void p(string a, int b) { if (b <= ERROR) k.Echo(a); } void q(ref string a) { if (100000 < a.Length) { a = a.Substring(a.Length - 100000); int b = a.IndexOf('\n'); a = a.Substring(a.Length - b).TrimStart(new char[] { '\n', '\r' }); } } void r(ref List<string> a, int b) { if (autoscroll && 0 < b && b < a.Count) a.RemoveRange(0, a.Count - b); } int s(IMyTextPanel a) { float b = a.GetValueFloat("FontSize"); if (b == 0.0f) b = 0.01f; return Convert.ToInt32(Math.Ceiling(17.0f / b)); } string t(string a, int b) { DateTime c = DateTime.Now; var d = @"[{0}-{1}.{2}][{3}][{4}][IC {5}/{6}] {7}"; object[] e = new object[] { c.ToShortDateString(), c.ToShortTimeString(), c.Millisecond.ToString().TrimStart('0'), u(b), getSender(), k.Runtime.CurrentInstructionCount, k.Runtime.MaxInstructionCount, a }; return string.Format(d, e); } string u(int a) { if (h.ContainsKey(a)) return h[a]; return string.Format("`{0}`", a); } }
+        public class BaconDebug { public const int OFF = 0; public const int FATAL = 1; public const int ERROR = 2; public const int WARN = 3; public const int INFO = 4; public const int DEBUG = 5; public const int TRACE = 6; Dictionary<int, string> h = new Dictionary<int, string>() { { OFF, "OFF" }, { FATAL, "FATAL" }, { ERROR, "ERROR" }, { WARN, "WARN" }, { INFO, "INFO" }, { DEBUG, "DEBUG" }, { TRACE, "TRACE" }, }; List<IMyTextPanel> j = new List<IMyTextPanel>(); MyGridProgram k; List<KeyValuePair<string, long>> l = new List<KeyValuePair<string, long>>(); int m = OFF; public string Format = @"[{0}-{1}.{2}][{3}][{4}][IC {5}/{6}] {7}"; bool n = true; public int remainingInstructions { get { return k.Runtime.MaxInstructionCount - k.Runtime.CurrentInstructionCount; } } public bool autoscroll { get { return n; } set { n = value; } } public void clearPanels() { for (int a = 0; a < j.Count; a++) j[a].WritePublicText(""); } public BaconDebug(string a, IMyGridTerminalSystem b, MyGridProgram c, int d, string e = "BaconDebug") { this.m = d; var f = new List<IMyTerminalBlock>(); b.GetBlocksOfType<IMyTextPanel>(f, ((IMyTerminalBlock g) => g.CustomName.Contains(a) && g.CubeGrid.Equals(c.Me.CubeGrid))); j = f.ConvertAll<IMyTextPanel>(g => g as IMyTextPanel); this.k = c; newScope(e); } public int getVerbosity() { return m; } public MyGridProgram getGridProgram() { return this.k; } public void newScope(string a) { l.Add(new KeyValuePair<string, long>(a, DateTime.Now.Ticks)); if (this.m.Equals(TRACE)) this.Trace("STEP INTO SCOPE"); } public void leaveScope() { if (l.Count > 0 && this.m.Equals(TRACE)) this.Trace("LEAVE SCOPE ({0} Ticks)", o(l[l.Count - 1].Value)); if (l.Count > 1) l.RemoveAt(l.Count - 1); } public string getSender() { if (l.Count > 0) if (this.m.Equals(TRACE)) { List<string> a = new List<string>(); foreach (KeyValuePair<string, long> entry in l) { a.Add(entry.Key); } return string.Join(">", a.ToArray()); } else { return l[l.Count - 1].Key; } return "NO SCOPE DEFINED"; } double o(long a) { long b = DateTime.Now.Ticks; return (Math.Max(a, b) - Math.Min(a, b)); } public void Fatal(string a, params object[] b) { Fatal(string.Format(a, b)); } public void Error(string a, params object[] b) { Error(string.Format(a, b)); } public void Warn(string a, params object[] b) { Warn(string.Format(a, b)); } public void Info(string a, params object[] b) { Info(string.Format(a, b)); } public void Debug(string a, params object[] b) { Debug(string.Format(a, b)); } public void Trace(string a, params object[] b) { Trace(string.Format(a, b)); } public void Fatal(string a) { add(a, FATAL); } public void Error(string a) { add(a, ERROR); } public void Warn(string a) { add(a, WARN); } public void Info(string a) { add(a, INFO); } public void Debug(string a) { add(a, DEBUG); } public void Trace(string a) { add(a, TRACE); } public void add(string a, int b) { p(a, b); if (b <= this.m) { var c = t(a, b); for (int d = 0; d < j.Count; d++) { var e = new List<string>(); e.AddRange(j[d].GetPublicText().Trim().Split(new char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)); e.Add(c); r(ref e, s(j[d])); var f = string.Join("\n", e.ToArray()); q(ref f); j[d].WritePublicText(f); } } } void p(string a, int b) { if (b <= ERROR) k.Echo(a); } void q(ref string a) { if (100000 < a.Length) { a = a.Substring(a.Length - 100000); int b = a.IndexOf('\n'); a = a.Substring(a.Length - b).TrimStart(new char[] { '\n', '\r' }); } } void r(ref List<string> a, int b) { if (autoscroll && 0 < b && b < a.Count) a.RemoveRange(0, a.Count - b); } int s(IMyTextPanel a) { float b = a.GetValueFloat("FontSize"); if (b == 0.0f) b = 0.01f; return Convert.ToInt32(Math.Ceiling(17.0f / b)); } string t(string a, int b) { DateTime c = DateTime.Now; object[] d = new object[] { c.ToShortDateString(), c.ToShortTimeString(), c.Millisecond.ToString().TrimStart('0'), u(b), getSender(), k.Runtime.CurrentInstructionCount, k.Runtime.MaxInstructionCount, a }; return string.Format(Format, d); } string u(int a) { if (h.ContainsKey(a)) return h[a]; return string.Format("`{0}`", a); } }
         #endregion included Libs
 
 
