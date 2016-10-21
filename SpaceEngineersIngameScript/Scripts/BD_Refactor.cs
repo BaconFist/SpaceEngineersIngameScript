@@ -31,40 +31,15 @@ namespace BD_Refactor
         public void Main(string argument)
         {
             BMyEnvironment Environment = bootstrap(BaconArgs.parse(argument));
-            Environment.Log.autoscroll = false;
-            Environment.Log.clearPanels();
-            Environment.Log.newScope("Main");
-
-            BMyTaskHandler TaskHandler = new BMyTaskHandler(Environment);
-            BMyTransaction<BMyEnvironment> EnvironmentTransaction = new BMyTransaction<BMyEnvironment>(Environment);
-
-            string[] tags = (Environment.GlobalArgs.getArguments().Count > 0) ? Environment.GlobalArgs.getArguments().ToArray() : new string[] {"[BaconDraw]"};
-            Environment.Log.Trace("Tag(s): {0}", string.Join(",", tags));
-
-            foreach (string tag in tags)
-            {
-                List<IMyTextPanel> Panels = new List<IMyTextPanel>();
-                GridTerminalSystem.GetBlocksOfType<IMyTextPanel>(Panels, (P=>P.CustomName.Contains(tag) && (P.CubeGrid.Equals(Me.CubeGrid) || P.CustomName.Contains("[BaconDrawIgnoreGrid]"))));
-                Environment.Log.Trace("Progressing tag \"{0}\" found {1} Panel(s)", tag, Panels.Count);
-                foreach (IMyTextPanel Panel in Panels)
-                {
-                    Environment = EnvironmentTransaction.Revert();
-                    TaskHandler.handlePanel(Panel);
-                }
-            }
-            Environment.Log.Trace(" - END - ");
-            Environment.Log.leaveScope();
+            
         }
 
         #region bootstrap
         BMyEnvironment bootstrap(BaconArgs Args)
         {
-            BMyEnvironment Env = new BMyEnvironment(this, Args, getDebugger(Args));
-            Env.Log.newScope("bootstrap");
-            #region load plugins
-            Env.DrawPlugins.TryRequirePlugins("BaconDraw");
-            Env.DrawPlugins.TryRequirePlugins(Env.GlobalArgs);
-            #endregion load plugins
+            BaconDebug Debugger = getDebugger(Args);
+            Debugger.newScope("bootstrap");
+            BMyEnvironment Env = new BMyEnvironment(this, Args, Debugger);
             Env.Log.leaveScope();
             return Env;
         }
@@ -94,50 +69,15 @@ namespace BD_Refactor
                     }
                     break;
             }
-            string tag = (Args.getOption("debug-screen").Count > 0) ? Args.getOption("debug-screen")[0] : "[BaconDraw_DEBUG]";
-            BaconDebug log = new BaconDebug(tag, GridTerminalSystem, this, verbosity, "BaconDraw");
-            log.Format = @"[{0}-{1}.{2}][{3}][IC {5}/{6}][{4}] {7}";
-            return log;
+            string tag = (Args.getOption("logScreen").Count > 0) ? Args.getOption("logScreen")[0] : "[BaconDraw_DEBUG]";
+            BaconDebug Debugger = new BaconDebug(tag, GridTerminalSystem, this, verbosity, "BaconDraw");
+            Debugger.Format = (Args.getOption("logFormat").Count > 0)?Args.getOption("logFormat")[0]:@"[{0}-{1}.{2}][{3}][IC {5}/{6}][{4}] {7}";
+            Debugger.autoscroll = false;
+            Debugger.clearPanels();
+            return Debugger;
 
         }
         #endregion bootstrap
-
-        #region TASKHANDLER
-        class BMyTaskHandler
-        {
-            public readonly BMyEnvironment Environment;
-            const int INSTRUCTION_SOFT_LIMIT = 20000;
-
-            public BMyTaskHandler(BMyEnvironment Environment)
-            {
-                this.Environment = Environment;
-            }
-
-            public void handlePanel(IMyTextPanel Panel)
-            {
-                Environment.Log.newScope("BMyTaskHandler.handlePanel");
-                Environment.Log.Trace("Progressing Panel \"{0}\"", Panel.CustomName);
-                Environment.DrawPlugins.TryRequirePlugins(BaconArgs.parse(Panel.GetPrivateTitle()));
-                string[] plugins = Environment.DrawPlugins.getLoadedPlugins();
-                Environment.Log.Trace("Loaded plugins({0}/{1}): [{2}]", plugins.Length, Environment.DrawPlugins.AvailabelPlugins.Count, string.Join("],[", plugins));
-
-                BMyCanvas canvas = new BMyCanvas(100, 100, Environment);
-
-                int lastLineParsed = 0;
-                if(!int.TryParse(Panel.GetPrivateTitle(), out lastLineParsed))
-                {
-                    lastLineParsed = 0;
-                }
-                if(Environment.Interpreter.ParseScript(Panel.GetPrivateText(), ref canvas, ref lastLineParsed))
-                {
-                    lastLineParsed = 0;
-                }
-                Panel.WritePrivateTitle(lastLineParsed.ToString());
-                Panel.WritePublicText(canvas.ToString());
-                Environment.Log.leaveScope();
-            }
-        }
-        #endregion TASKHANDLER
 
         #region ENVIRONMENT
         class BMyEnvironment
@@ -148,7 +88,6 @@ namespace BD_Refactor
             public readonly BaconDebug Log;
             public readonly Dictionary<string, BMyFont> Fonts;
             public readonly BMyColor Color;
-            public readonly BMyInterpreter Interpreter;
 
             public BMyEnvironment(Program Global, BaconArgs GlobalArgs, BaconDebug Log)
             {
@@ -159,7 +98,6 @@ namespace BD_Refactor
                 this.DrawPlugins = new BMyDrawPluginHandler(this);
                 this.Fonts = new Dictionary<string, BMyFont>();
                 this.Color = new BMyColor(this);
-                this.Interpreter = new BMyInterpreter(this);
                 Log.Trace("Envionment Initialized");
                 Log.leaveScope();
             }
@@ -220,51 +158,6 @@ namespace BD_Refactor
         }
         #endregion FONT
 
-        #region INTERPRETER
-        class BMyInterpreter
-        {
-            public readonly BMyEnvironment Environment;
-            
-            public BMyInterpreter(BMyEnvironment Environment)
-            {
-                this.Environment = Environment;
-            }
-
-            public bool ParseScript(string Script, ref BMyCanvas canvas, ref int lastLineParsed)
-            {
-                Environment.Log.newScope("BMyInterpreter.ParseScript");
-                string[] Code = Script.Split(new char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
-                for(int i = lastLineParsed; i < Code.Length; i++) { 
-                    if(Environment.Log.remainingInstructions < 30000)
-                    {
-                        Environment.Log.Trace("drawing delayed to next run at line {0}", lastLineParsed);
-                        break;
-                    }
-
-                    string commandLine = Code[i];
-                    BaconArgs Args = BaconArgs.parse(commandLine);
-                    Environment.Log.Trace("Arguments: `{0}`", Args.ToString());
-                    if(Args.getArguments().Count > 0)
-                    {
-                        if(Environment.DrawPlugins.TryInterpret(Args, ref canvas))
-                        {
-                            Environment.Log.Trace("success parsing: {0}", commandLine);
-                        } else
-                        {
-                            Environment.Log.Trace("failed parsing: {0}", commandLine);
-                        }
-                    } else
-                    {
-                        Environment.Log.Trace("skip line, no arguments [\"{0}\"]", commandLine);
-                    }
-                    lastLineParsed++;
-                }
-                Environment.Log.leaveScope();
-                return lastLineParsed.Equals(Code.Length);
-            }
-        }
-        #endregion INTERPRETER
-        
         #region CANVAS
         class BMyCanvas
         {
@@ -387,23 +280,6 @@ namespace BD_Refactor
         }
         #endregion CANVAS
 
-        #region Transactions
-        class BMyTransaction<T>
-        {
-            private T buffer;
-
-            public BMyTransaction(T value)
-            {
-                buffer = value;
-            }
-
-            public T Revert()
-            {
-                return buffer;
-            }
-        }
-        #endregion Transactions
-
         #region COLOR
         class BMyColor
         {
@@ -460,204 +336,211 @@ namespace BD_Refactor
         #endregion COLOR
 
         #region Pluginsystem
-        class BMyDrawPluginHandler : Dictionary<string, List<BMyDrawPlugin>>
+        #region BMyPluginHandler base
+        class BMyPluginHandler<T> : Dictionary<string, List<T>> where T : BMyPlugin
         {
+            private Dictionary<string, List<T>> AvailablePlugins = new Dictionary<string, List<T>>();
+            private Dictionary<string, List<T>> EnabledPlugins = new Dictionary<string, List<T>>();
             public readonly BMyEnvironment Environment;
-            public readonly Dictionary<string, List<BMyDrawPlugin>> AvailabelPlugins = new Dictionary<string, List<BMyDrawPlugin>>();
-
-
-            public BMyDrawPluginHandler(BMyEnvironment Environment)
+            public BMyPluginHandler(BMyEnvironment Environment)
             {
                 this.Environment = Environment;
                 bootstrap();
             }
-
-            private void bootstrap()
+            protected void bootstrap()
             {
-                Environment.Log.newScope("BMyDrawPluginHandler.bootstrap");
-                #region DrawPlugin "BaconDraw"
-                Environment.Log.Trace("Initializing DrawPlugin \"BaconDraw\"");
-                AvailabelPlugins.Add("BaconDraw", new List<BMyDrawPlugin>());
-                AvailabelPlugins["BaconDraw"].Add(new BMyDrawPlugin_BaconDraw_Circle(Environment));
-                AvailabelPlugins["BaconDraw"].Add(new BMyDrawPlugin_BaconDraw_Font(Environment));
-                AvailabelPlugins["BaconDraw"].Add(new BMyDrawPlugin_BaconDraw_LineTo(Environment));
-                AvailabelPlugins["BaconDraw"].Add(new BMyDrawPlugin_BaconDraw_Polygon(Environment));
-                AvailabelPlugins["BaconDraw"].Add(new BMyDrawPlugin_BaconDraw_Rectangle(Environment));
-                AvailabelPlugins["BaconDraw"].Add(new BMyDrawPlugin_BaconDraw_Text(Environment));
-                AvailabelPlugins["BaconDraw"].Add(new BMyDrawPlugin_BaconDraw_Background(Environment));
-                AvailabelPlugins["BaconDraw"].Add(new BMyDrawPlugin_BaconDraw_Color(Environment));
-                AvailabelPlugins["BaconDraw"].Add(new BMyDrawPlugin_BaconDraw_MoveTo(Environment));
-                #endregion DrawPlugin "BaconDraw"
-
-                Environment.Log.leaveScope();
+                // add lsit of available plugins;
             }
-
-            public string[] getLoadedPlugins()
+            protected void AddAvailable(params T[] Plugins)
             {
-                List<string> names = new List<string>();
-                foreach (KeyValuePair<string, List<BMyDrawPlugin>> buffer in this)
+                foreach (T Plugin in Plugins)
                 {
-                    foreach(BMyDrawPlugin Plugin in buffer.Value)
+                    if (!AvailablePlugins.ContainsKey(Plugin.Type))
                     {
-                        if (!names.Contains(Plugin.Name))
-                        {
-                            names.Add(Plugin.Name);
-                        }
+                        AvailablePlugins.Add(Plugin.Type, new List<T>());
+                    }
+                    if (!AvailablePlugins[Plugin.Type].Contains(Plugin))
+                    {
+                        AvailablePlugins[Plugin.Type].Add(Plugin);
                     }
                 }
-                return names.ToArray();
             }
-
-            public bool TryRequirePlugins(BaconArgs Args)
+            public bool FindBySubtype(string SubType, out List<T> Matches)
             {
-                return TryRequirePlugins(getRequiredPluginNames(Args));
-            }
+                Environment.Log.newScope("BMyPluginHandler.findBySubtype");
 
-            public bool TryRequirePlugins(params string[] Names)
-            {
-                Environment.Log.newScope("BMyDrawPluginHandler.TryRequirePlugins");
-                bool required = true;
-                foreach (string Name in Names)
+                string subTypeLow = SubType.ToLowerInvariant();
+                Matches = new List<T>();
+                if (!ContainsKey(subTypeLow))
                 {
-                    if (!AvailabelPlugins.ContainsKey(Name))
-                    {
-                        Environment.Log.Trace("Plugin \"{0}\" not found", Name);
-                        Environment.Log.leaveScope();
-                        return false;
-                    }
-                    bool success = false;
-                    foreach (BMyDrawPlugin Plugin in AvailabelPlugins[Name])
-                    {
-                        if (!TryAddPlugin(Plugin))
-                        {
-                            success = success || false;
-                            Environment.Log.Trace("Error loading plugin \"{0}({1})\"", Plugin.Name, Plugin.Command);
-                        }
-                    }
-                    if (!success)
-                    {
-                        Environment.Log.Trace("Unable to load anything of \"{0}\" plugin", Name);
-                    }
-                    required = required && success;
-                }
-                Environment.Log.leaveScope();
-                return required;
-            }
-
-            string[] getRequiredPluginNames(BaconArgs Args)
-            {
-                Environment.Log.newScope("BMyDrawPluginHandler.getRequiredPluginNames");
-                List<string> plugins = new List<string>();
-                foreach (string names in Environment.GlobalArgs.getOption("plugin"))
-                {
-                    plugins.AddRange(names.Split(','));
-                }
-                Environment.Log.leaveScope();
-                return plugins.ToArray();
-            }
-
-            public bool TryAddPlugin(BMyDrawPlugin Plugin)
-            {
-                Environment.Log.newScope("BMyDrawPluginHandler.AddPlugin");
-                string command = Plugin.Command.ToLowerInvariant();
-                if (!ContainsKey(command))
-                {
-                    Add(command, new List<BMyDrawPlugin>());
-                }
-                if (!this[command].Contains(Plugin))
-                {
-                    this[command].Insert(0, Plugin);
-                    Environment.Log.Trace("Load Plugin \"{1}\" for \"{0}\"", command, Plugin.Name);
+                    Environment.Log.Trace("found no plugins for {1}", Matches.Count, SubType);
                     Environment.Log.leaveScope();
-                    return true;
+                    return false;
                 }
-                Environment.Log.Trace("Unable load Plugin \"{1}\" for \"{0}\" => {2}", command, Plugin.Name, (this[command].Contains(Plugin)?"already loaded":"unknown reason"));
+                Matches = this[subTypeLow];
+                Environment.Log.Trace("found {0} plugins for {1}", Matches.Count, SubType);
                 Environment.Log.leaveScope();
-                return false;
+                return true;
             }
-
-            public bool TryInterpret(BaconArgs Args, ref BMyCanvas canvas)
+            public bool isEnabled(string SubType)
             {
-                Environment.Log.newScope("BMyDrawPluginHandler.TryInterpret");
-                if(Args.getArguments().Count == 0)
+                return ContainsKey(SubType.ToLowerInvariant());
+            }
+            public bool TryEnable(string Type)
+            {
+                Environment.Log.newScope("BMyPluginHandler.TryEnable");
+
+                if (!AvailablePlugins.ContainsKey(Type))
                 {
-                    Environment.Log.Trace("Skip line (no arguments)");
+                    Environment.Log.Trace("no plugins available for \"{0}\"", Type);
                     Environment.Log.leaveScope();
                     return false;
                 }
 
-                if (!hasPlugin(Args.getArguments()[0]))
+                foreach(T Plugin in AvailablePlugins[Type])
+                {
+                    if (!ContainsKey(Plugin.SubType))
+                    {
+                        this.Add(Plugin.SubType, new List<T>());
+                    }
+                    if (!this[Plugin.SubType].Contains(Plugin))
+                    {
+                        this[Plugin.SubType].Add(Plugin);
+                        Plugin.init();
+                    }
+                }
+
+                Environment.Log.leaveScope();
+                return true;
+            }
+            public bool TryRun(string SubType, BaconArgs Args, params object[] parameters)
+            {
+                Environment.Log.newScope("BMyPluginHandler.TryRun");
+                List<T> Plugins;
+                if (!FindBySubtype(SubType, out Plugins))
                 {
                     Environment.Log.leaveScope();
                     return false;
                 }
-                BMyTransaction<BMyCanvas> Buffer = new BMyTransaction<BMyCanvas>(canvas);
-
                 bool success = false;
-                Environment.Log.Trace("found {0} plugins for {1}", this[Args.getArguments()[0]].Count, Args.getArguments()[0]);
-                foreach(BMyDrawPlugin Plugin in this[Args.getArguments()[0]])
+                for(int i = 0;!success && i < Plugins.Count; i++)
                 {
-                    canvas = Buffer.Revert();
-                    Environment.Log.Trace("try plugin {0}/{1}", Plugin.Name, Plugin.Command);
-                    Environment.Log.newScope(string.Format("BMyDrawPlugin(\"{0}/{1}\").isValid", Plugin.Name, Plugin.Command));
-                    bool isValid = Plugin.isValid(Args);
+                    Environment.Log.newScope(string.Format("BMyPlugin({0}/{1}).TryRun", Plugins[i].Type, Plugins[i].SubType));
+                    success = Plugins[i].TryRun(Args, parameters);
                     Environment.Log.leaveScope();
-                    if (isValid)
+                    if (success)
                     {
-                        Environment.Log.newScope(string.Format("BMyDrawPlugin(\"{0}/{1}\").TryInterpret", Plugin.Name, Plugin.Command));
-                        success = Plugin.TryInterpret(Args, ref canvas);
-                        Environment.Log.leaveScope();
-                        if (success)
-                        {
-                            Environment.Log.Trace("successfull with plugin {0}/{1}", Plugin.Name, Plugin.Command);
-                            break;
-                        }
-                        Environment.Log.Trace("no success with plugin {0}/{1} => try to continue", Plugin.Name, Plugin.Command);
+                        Environment.Log.Trace("Success on plugin \"{0}/{1}\" with {2}", Plugins[i].Type, Plugins[i].SubType, Args.ToString());
                     }
                 }
+                if (!success)
+                {
+                    Environment.Log.Trace("No success with {1}", Args.ToString());
+                }
+
                 Environment.Log.leaveScope();
                 return success;
             }
-
-            public bool hasPlugin(string command)
-            {
-                Environment.Log.newScope("BMyDrawPluginHandler.hasPlugin");
-                bool contains = ContainsKey(command.ToLowerInvariant());
-                Environment.Log.Trace("{0}Plugin for \"{1}\"", contains?"":"no ", command);
-                Environment.Log.leaveScope();
-                return contains;
-            }
         }
-
-        abstract class BMyDrawPlugin
+        #endregion BMyPluginHandler base
+        #region Plugin base
+        abstract class BMyPlugin
         {
-            abstract public string Name { get; }
-            abstract public string Command { get; }
-            abstract public bool isValid(BaconArgs Args);
-            abstract public bool TryInterpret(BaconArgs Args, ref BMyCanvas canvas);
+            abstract public string Type { get; }
+            abstract protected string subType { get; }
+
+            public string SubType { get { return subType.ToLowerInvariant(); } }
             public readonly BMyEnvironment Environment;
 
-            public BMyDrawPlugin(BMyEnvironment Environment)
+            abstract protected bool isValid(BaconArgs Args);
+            abstract protected bool TryExecute(BaconArgs Args, params object[] parameters);
+            abstract protected bool isValidParameter(params object[] parameters);
+
+            public bool TryRun(BaconArgs Args, params object[] parameters)
+            {
+                if (isValidParameter(parameters) && isValid(Args))
+                {
+                    return TryExecute(Args, parameters);
+                }
+                return false;
+            }
+            public BMyPlugin(BMyEnvironment Environment)
             {
                 this.Environment = Environment;
             }
+            public void init() {}
         }
+        #endregion Plugin base
+
+        #region Pluginhandlers
+        class BMyDrawPluginHandler : BMyPluginHandler<BMyDrawPlugin>
+        {
+            public BMyDrawPluginHandler(BMyEnvironment Environment) : base(Environment) { }
+            new protected void bootstrap()
+            {
+                AddAvailable(
+                    new BMyDrawPlugin_BaconDraw_Background(Environment),
+                    new BMyDrawPlugin_BaconDraw_Circle(Environment),
+                    new BMyDrawPlugin_BaconDraw_Color(Environment),
+                    new BMyDrawPlugin_BaconDraw_Font(Environment),
+                    new BMyDrawPlugin_BaconDraw_LineTo(Environment),
+                    new BMyDrawPlugin_BaconDraw_MoveTo(Environment),
+                    new BMyDrawPlugin_BaconDraw_Polygon(Environment),
+                    new BMyDrawPlugin_BaconDraw_Rectangle(Environment),
+                    new BMyDrawPlugin_BaconDraw_Text(Environment)
+                );
+            }
+        }
+        #endregion Pluginhandlers
+
+        #region PluginTypes
+        abstract class BMyDrawPlugin : BMyPlugin
+        {
+            public BMyDrawPlugin(BMyEnvironment Environment) : base(Environment) { }
+            protected override bool isValidParameter(params object[] parameters)
+            {
+                Environment.Log.newScope("BMyDrawPlugin.isValidParameter");
+                bool valid = true;
+                if (parameters.Length == 1 && !(parameters[0] is BMyCanvas))
+                {
+                    Environment.Log.Trace("parameter must be of type {0}", "BMyCanvas");
+                    valid = false;
+                }
+                Environment.Log.leaveScope();
+                return valid;
+            }
+        }
+        #endregion PluginTypes
         #endregion Pluginsystem
 
         #region included Plugins
         class BMyDrawPlugin_BaconDraw_LineTo : BMyDrawPlugin
         {
-            public override string Name { get { return "BaconDraw"; } }
-            public override string Command { get { return "lineto"; } }
-
+            public override string Type { get { return "BaconDraw"; } }
+            protected override string subType { get { return "lineto"; } }
             public BMyDrawPlugin_BaconDraw_LineTo(BMyEnvironment Environment) : base(Environment){}
-
-            public override bool TryInterpret(BaconArgs Args, ref BMyCanvas canvas)
+            protected override bool isValid(BaconArgs Args)
             {
-                Point dest;
-                if (Args.getArguments().Count < 2 || !canvas.TryParseCoords(Args.getArguments()[1], out dest))
+                if (!(Args.getArguments().Count == 1))
                 {
-                    Environment.Log.Trace("no valid arguments => can't draw {0}", Command);
+                    Environment.Log.Trace("wrong number of arguments");
+                    return false;
+                }
+
+                if (!(new System.Text.RegularExpressions.Regex(@"\d+,\d+")).IsMatch(Args.getArguments()[0]))
+                {
+                    Environment.Log.Trace("argument in wrong format (must be a number)");
+                    return false;
+                }
+                return true;
+            }
+            protected override bool TryExecute(BaconArgs Args, params object[] parameters)
+            {
+                BMyCanvas canvas = parameters[0] as BMyCanvas;
+                Point dest;
+                if (Args.getArguments().Count < 1 || !canvas.TryParseCoords(Args.getArguments()[0], out dest))
+                {
+                    Environment.Log.Trace("no valid arguments => can't draw {0}", SubType);
                     return false;
                 }
                 Point Position = canvas.getPosition();
@@ -704,67 +587,47 @@ namespace BD_Refactor
                     canvas.setPixel(_x, _y);
                 }
                 canvas.setPosition(_x, _y);
-                Environment.Log.Trace("draw {2} to {0},{1}", _x, _y, Command);
-                return true;
-            }
-
-            public override bool isValid(BaconArgs Args)
-            {
-                if (!(Args.getArguments().Count == 2))
-                {
-                    Environment.Log.Trace("wrong number of arguments");
-                    return false;
-                }
-
-                if (!(new System.Text.RegularExpressions.Regex(@"\d+,\d+")).IsMatch(Args.getArguments()[1]))
-                {
-                    Environment.Log.Trace("argument in wrong format (must be a number)");
-                    return false;
-                }
+                Environment.Log.Trace("draw {2} to {0},{1}", _x, _y, SubType);
                 return true;
             }
         }
         class BMyDrawPlugin_BaconDraw_Polygon : BMyDrawPlugin
         {
             System.Text.RegularExpressions.Regex MatchRgx = new System.Text.RegularExpressions.Regex(@"\d+,\d+");
-
-            public override string Name { get { return "BaconDraw"; } }
-            public override string Command { get { return "polygon"; } }
-
+            public override string Type { get { return "BaconDraw"; } }
+            protected override string subType { get { return "polygon"; } }
             public BMyDrawPlugin_BaconDraw_Polygon(BMyEnvironment Environment) : base(Environment){ }
-
-            public override bool TryInterpret(BaconArgs Args, ref BMyCanvas canvas)
+            protected override bool TryExecute(BaconArgs Args, params object[] parameters)
             {
-                if (!Environment.DrawPlugins.hasPlugin("lineto"))
+                BMyCanvas canvas = parameters[0] as BMyCanvas;
+                if (!Environment.DrawPlugins.isEnabled("lineto"))
                 {
-                    Environment.Log.Trace("no plugin for \"lineto\" => can't draw {0}", Command);
+                    Environment.Log.Trace("no plugin for \"lineto\" => can't draw {0}", SubType);
                     return false;
                 }
-                for(int i = 1; i < Args.getArguments().Count; i++)
+                for(int i = 0; i < Args.getArguments().Count; i++)
                 {
                     BaconArgs LineToArgs = new BaconArgs();
-                    LineToArgs.add("lineto");
                     LineToArgs.add(Args.getArguments()[i]);
-                    if(!Environment.DrawPlugins.TryInterpret(LineToArgs, ref canvas))
+                    if(!Environment.DrawPlugins.TryRun("lineto", LineToArgs, canvas))
                     {
-                        Environment.Log.Trace("failed drawing line to {0} for {1}", Args.getArguments()[i], Command);
+                        Environment.Log.Trace("failed drawing line to {0} for {1}", Args.getArguments()[i], SubType);
                         return false;
                     }
                 }
-                Environment.Log.Trace("drawed {0}", Command);
+                Environment.Log.Trace("drawed {0}", SubType);
                 return true;
             }
-
-            public override bool isValid(BaconArgs Args)
+            protected override bool isValid(BaconArgs Args)
             {
-                if(Args.getArguments().Count < 2)
+                if(Args.getArguments().Count < 1)
                 {
-                    Environment.Log.Trace("not enough arguments (must be at least 2)");
+                    Environment.Log.Trace("not enough arguments (must be at least 1)");
                     return false;
                 }
                 bool valid = true;
 
-                for(int i = 1; i < Args.getArguments().Count; i++)
+                for(int i = 0; i < Args.getArguments().Count; i++)
                 {
                     if (!MatchRgx.IsMatch(Args.getArguments()[i]))
                     {
@@ -777,48 +640,45 @@ namespace BD_Refactor
         }
         class BMyDrawPlugin_BaconDraw_Rectangle : BMyDrawPlugin
         {
-            public override string Name { get { return "BaconDraw"; } }
-            public override string Command { get { return "rect"; } }
-
+            public override string Type { get { return "BaconDraw"; } }
+            protected override string subType { get { return "rect"; } }
             public BMyDrawPlugin_BaconDraw_Rectangle(BMyEnvironment Environment) : base(Environment){ }
-
-            public override bool TryInterpret(BaconArgs Args, ref BMyCanvas canvas)
+            protected override bool TryExecute(BaconArgs Args, params object[] parmeters)
             {
-                if (!Environment.DrawPlugins.hasPlugin("polygon"))
+                BMyCanvas canvas = parmeters[0] as BMyCanvas;
+                if (!Environment.DrawPlugins.isEnabled("polygon"))
                 {
-                    Environment.Log.Trace("no plugin for \"polygon\" => can't draw {0}", Command);
+                    Environment.Log.Trace("no plugin for \"polygon\" => can't draw {0}", SubType);
                     return false;
                 }
                 Point dest;
-                if(!canvas.TryParseCoords(Args.getArguments()[1], out dest)){
-                    Environment.Log.Trace("invalid coordinates {0} => can't draw {1}", Args.getArguments()[1], Command);
+                if(!canvas.TryParseCoords(Args.getArguments()[0], out dest)){
+                    Environment.Log.Trace("invalid coordinates {0} => can't draw {1}", Args.getArguments()[0], SubType);
                     return false;
                 }
                 BaconArgs PolygonArgs = new BaconArgs();
-                PolygonArgs.add("polygon");
                 PolygonArgs.add(string.Format("{0},{1}", dest.X, canvas.getPosition().Y));
                 PolygonArgs.add(string.Format("{0},{1}", dest.X, dest.Y));
                 PolygonArgs.add(string.Format("{0},{1}", canvas.getPosition().X, dest.Y));
                 PolygonArgs.add(string.Format("{0},{1}", canvas.getPosition().X, canvas.getPosition().Y));
-                if(!Environment.DrawPlugins.TryInterpret(PolygonArgs, ref canvas))
+                if(!Environment.DrawPlugins.TryRun("polygon", PolygonArgs, canvas))
                 {
-                    Environment.Log.Trace("failed drawing {0}", Command);
+                    Environment.Log.Trace("failed drawing {0}", SubType);
                     return false;
                 }
                 canvas.setPosition(dest.X,dest.Y);
-                Environment.Log.Trace("drawed a {0} to {1},{2}", Command, dest.X, dest.Y);
+                Environment.Log.Trace("drawed a {0} to {1},{2}", SubType, dest.X, dest.Y);
                 return true;
             }
-
-            public override bool isValid(BaconArgs Args)
+            protected override bool isValid(BaconArgs Args)
             {
-                if (!(Args.getArguments().Count == 2))
+                if (!(Args.getArguments().Count == 1))
                 {
                     Environment.Log.Trace("wrong number of arguments");
                     return false;
                 }
 
-                if (!(new System.Text.RegularExpressions.Regex(@"\d+,\d+")).IsMatch(Args.getArguments()[1]))
+                if (!(new System.Text.RegularExpressions.Regex(@"\d+,\d+")).IsMatch(Args.getArguments()[0]))
                 {
                     Environment.Log.Trace("argument in wrong format (must be a number)");
                     return false;
@@ -829,17 +689,16 @@ namespace BD_Refactor
         }
         class BMyDrawPlugin_BaconDraw_Circle : BMyDrawPlugin
         {
-            public override string Name { get { return "BaconDraw"; } }
-            public override string Command { get { return "circle"; } }
-
+            public override string Type { get { return "BaconDraw"; } }
+            protected override string subType { get { return "circle"; } }
             public BMyDrawPlugin_BaconDraw_Circle(BMyEnvironment Environment) : base(Environment){ }
-
-            public override bool TryInterpret(BaconArgs Args, ref BMyCanvas canvas)
+            protected override bool TryExecute(BaconArgs Args, params object[] parmeters)
             {
+                BMyCanvas canvas = parmeters[0] as BMyCanvas;
                 int Radius;
-                if(!int.TryParse(Args.getArguments()[1], out Radius))
+                if(!int.TryParse(Args.getArguments()[0], out Radius))
                 {
-                    Environment.Log.Trace("Invalid argument \"{0}\" must be a number", Args.getArguments()[1]);
+                    Environment.Log.Trace("Invalid argument \"{0}\" must be a number", Args.getArguments()[0]);
                     return false;
                 }
                 int d;
@@ -862,19 +721,18 @@ namespace BD_Refactor
                         x = x - 1;
                     }
                 }
-                Environment.Log.Trace("drawed a {0} with a radius of {1}", Command, Radius);
+                Environment.Log.Trace("drawed a {0} with a radius of {1}", SubType, Radius);
                 return true;
             }
-
-            public override bool isValid(BaconArgs Args)
+            protected override bool isValid(BaconArgs Args)
             {
-                if(!(Args.getArguments().Count == 2))
+                if(!(Args.getArguments().Count == 1))
                 {
                     Environment.Log.Trace("wrong number of arguments");
                     return false;
                 }
 
-                if(!(new System.Text.RegularExpressions.Regex(@"\d+")).IsMatch(Args.getArguments()[1]))
+                if(!(new System.Text.RegularExpressions.Regex(@"\d+")).IsMatch(Args.getArguments()[0]))
                 {
                     Environment.Log.Trace("argument in wrong format (must be a number)");
                     return false;
@@ -885,25 +743,21 @@ namespace BD_Refactor
         }
         class BMyDrawPlugin_BaconDraw_Font : BMyDrawPlugin
         {
-            public override string Command { get { return "font"; }}
-            public override string Name { get { return "BaconDraw"; } }
+            protected override string subType { get { return "font"; }}
+            public override string Type { get { return "BaconDraw"; } }
             private System.Text.RegularExpressions.Regex GlyphRgx = new System.Text.RegularExpressions.Regex(@"'.'\S+");
             private System.Text.RegularExpressions.Regex SizeRgx = new System.Text.RegularExpressions.Regex(@"\d+x\d+");
             private System.Text.RegularExpressions.Regex NameRgx = new System.Text.RegularExpressions.Regex(@"[^\s:]+(:[^\s:]+)?");
             private string splitChunkPatternFormat = @"(\S{{{0}}})";
-
-            const int indexChars = 3;
-            const int indexSize = 2;
-            const int indexName = 1;
-
+            const int indexChars = 2;
+            const int indexSize = 1;
+            const int indexName = 0;
             const int indexGlyph = 1;
             const int indexGlyphData = 3;
-
             public BMyDrawPlugin_BaconDraw_Font(BMyEnvironment Environment) : base(Environment){}
-
-            public override bool isValid(BaconArgs Args)
+            protected override bool isValid(BaconArgs Args)
             {
-                if(Args.getArguments().Count < 4)
+                if(Args.getArguments().Count < 3)
                 {
                     Environment.Log.Trace("not enough arguments");
                     return false;
@@ -937,9 +791,9 @@ namespace BD_Refactor
                 }
                 return true;
             }
-
-            public override bool TryInterpret(BaconArgs Args, ref BMyCanvas canvas)
+            protected override bool TryExecute(BaconArgs Args, params object[] parameters)
             {
+                BMyCanvas canvas = parameters[0] as BMyCanvas;
                 int w = int.Parse(Args.getArguments()[indexSize].Split(',')[0]);
                 int h = int.Parse(Args.getArguments()[indexSize].Split(',')[1]);
                 string[] nameArg = Args.getArguments()[indexName].Split(':');
@@ -960,7 +814,6 @@ namespace BD_Refactor
                 Environment.Log.Trace("new font \"{0}{1}\" with BxH {2}x{3} and {4} characters", font.Name, (extends.Length >0)?":"+font.Extends:"",font.Width,font.Height,font.Count);
                 return Environment.TryAddFont(font);
             }
-
             private string[] getData(string data, int width, int height)
             {
                 List<string> buffer = new List<string>();
@@ -982,101 +835,92 @@ namespace BD_Refactor
         }
         class BMyDrawPlugin_BaconDraw_Text : BMyDrawPlugin
         {
-            public override string Command { get { return "text"; } }
-            public override string Name { get { return "BaconDraw"; } }
-
+            protected override string subType { get { return "text"; } }
+            public override string Type { get { return "BaconDraw"; } }
             const int indexName = 1;
-            
             public BMyDrawPlugin_BaconDraw_Text(BMyEnvironment Environment) : base(Environment){}
-
-            public override bool isValid(BaconArgs Args)
+            protected override bool isValid(BaconArgs Args)
             {
                 Environment.Log.Trace("NotImplementedException");
                 return false;
             }
-
-            public override bool TryInterpret(BaconArgs Args, ref BMyCanvas canvas)
+            protected override bool TryExecute(BaconArgs Args, params object[] parameters)
             {
+                BMyCanvas canvas = parameters[0] as BMyCanvas;
                 Environment.Log.Trace("NotImplementedException");
                 return false;
             }
         }
         class BMyDrawPlugin_BaconDraw_Background : BMyDrawPlugin
         {
-            public override string Command { get { return "background"; } }
-            public override string Name { get { return "BaconDraw"; } }
-
+            protected override string subType { get { return "background"; } }
+            public override string Type { get { return "BaconDraw"; } }
             public BMyDrawPlugin_BaconDraw_Background(BMyEnvironment Environment) : base(Environment) { }
-
-            public override bool isValid(BaconArgs Args)
+            protected override bool isValid(BaconArgs Args)
             {
-                if(!(Args.getArguments().Count == 2)){
+                if(!(Args.getArguments().Count == 1)){
                     Environment.Log.Trace("wrong number of arguments");
                     return false;
                 }
                 return true;
             }
-
-            public override bool TryInterpret(BaconArgs Args, ref BMyCanvas canvas)
+            protected override bool TryExecute(BaconArgs Args, params object[] parameters)
             {
-                canvas.background = Environment.Color.getColorCode(Args.getArguments()[1]);
-                Environment.Log.Trace("interpreted \"{0}\" as color '{1}'", Args.getArguments()[1], canvas.background);
+                BMyCanvas canvas = parameters[0] as BMyCanvas;
+                canvas.background = Environment.Color.getColorCode(Args.getArguments()[0]);
+                Environment.Log.Trace("interpreted \"{0}\" as color '{1}'", Args.getArguments()[0], canvas.background);
                 return true;
             }
         }
         class BMyDrawPlugin_BaconDraw_Color : BMyDrawPlugin
         {
-            public override string Command { get { return "color"; } }
-            public override string Name { get { return "BaconDraw"; } }
-
+            protected override string subType { get { return "color"; } }
+            public override string Type { get { return "BaconDraw"; } }
             public BMyDrawPlugin_BaconDraw_Color(BMyEnvironment Environment) : base(Environment) { }
-
-            public override bool isValid(BaconArgs Args)
+            protected override bool isValid(BaconArgs Args)
             {
-                if (!(Args.getArguments().Count == 2))
+                if (!(Args.getArguments().Count == 1))
                 {
                     Environment.Log.Trace("wrong number of arguments");
                     return false;
                 }
                 return true;
             }
-
-            public override bool TryInterpret(BaconArgs Args, ref BMyCanvas canvas)
+            protected override bool TryExecute(BaconArgs Args, params object[] parameters)
             {
-                canvas.color = Environment.Color.getColorCode(Args.getArguments()[1]);
-                Environment.Log.Trace("interpreted \"{0}\" as color '{1}'", Args.getArguments()[1], canvas.color);
+                BMyCanvas canvas = parameters[0] as BMyCanvas;
+                canvas.color = Environment.Color.getColorCode(Args.getArguments()[0]);
+                Environment.Log.Trace("interpreted \"{0}\" as color '{1}'", Args.getArguments()[0], canvas.color);
                 return true;
             }
         }
         class BMyDrawPlugin_BaconDraw_MoveTo : BMyDrawPlugin
         {
-            public override string Command { get{ return "moveto"; } }
-            public override string Name { get{ return "BaconDraw"; } }
-
+            protected override string subType { get{ return "moveto"; } }
+            public override string Type { get{ return "BaconDraw"; } }
             public BMyDrawPlugin_BaconDraw_MoveTo(BMyEnvironment Environment) : base(Environment) { }
-
-            public override bool isValid(BaconArgs Args)
+            protected override bool isValid(BaconArgs Args)
             {
-                if (!(Args.getArguments().Count == 2))
+                if (!(Args.getArguments().Count == 1))
                 {
                     Environment.Log.Trace("wrong number of arguments");
                     return false;
                 }
 
-                if (!(new System.Text.RegularExpressions.Regex(@"\d+,\d+")).IsMatch(Args.getArguments()[1]))
+                if (!(new System.Text.RegularExpressions.Regex(@"\d+,\d+")).IsMatch(Args.getArguments()[0]))
                 {
                     Environment.Log.Trace("argument in wrong format (must be a number)");
                     return false;
                 }
                 return true;
             }
-
-            public override bool TryInterpret(BaconArgs Args, ref BMyCanvas canvas)
+            protected override bool TryExecute(BaconArgs Args, params object[] parameters)
             {
+                BMyCanvas canvas = parameters[0] as BMyCanvas;
                 Point coord;
-                if(!canvas.TryParseCoords(Args.getArguments()[1], out coord))
+                if(!canvas.TryParseCoords(Args.getArguments()[0], out coord))
                 {
-                    Environment.Log.Trace("unable to paarse coordinates: {0}", Args.getArguments()[1]);
+                    Environment.Log.Trace("unable to paarse coordinates: {0}", Args.getArguments()[0]);
                     return false;
                 }
                 canvas.setPosition(coord.X, coord.Y);
@@ -1093,7 +937,6 @@ namespace BD_Refactor
         public class BaconArgs { public string InputData; static public BaconArgs parse(string a) { return (new Parser()).parseArgs(a); } static public string Escape(string a) { return a.Replace(@"\", @"\\").Replace(@" ", @"\ ").Replace(@"""", @"\"""); } static public string UnEscape(string a) { return a.Replace(@"\""", @"""").Replace(@"\ ", @" ").Replace(@"\\", @"\"); } public class Parser { static Dictionary<string, BaconArgs> h = new Dictionary<string, BaconArgs>(); public BaconArgs parseArgs(string a) { if (!h.ContainsKey(a)) { var b = new BaconArgs(); b.InputData = a; var c = false; var d = false; var e = new StringBuilder(); for (int f = 0; f < a.Length; f++) { var g = a[f]; if (c) { e.Append(g); c = false; } else if (g.Equals('\\')) c = true; else if (d && !g.Equals('"')) e.Append(g); else if (g.Equals('"')) d = !d; else if (g.Equals(' ')) if (e.ToString().Equals("--")) { b.add(a.Substring(f).TrimStart()); e.Clear(); break; } else { b.add(e.ToString()); e.Clear(); } else e.Append(g); } if (e.Length > 0) b.add(e.ToString()); h.Add(a, b); } return h[a]; } } protected Dictionary<char, int> h = new Dictionary<char, int>(); protected List<string> i = new List<string>(); protected Dictionary<string, List<string>> j = new Dictionary<string, List<string>>(); public List<string> getArguments() { return i; } public int getFlag(char a) { return h.ContainsKey(a) ? h[a] : 0; } public List<string> getOption(string a) { return j.ContainsKey(a) ? j[a] : new List<string>(); } public void add(string a) { if (a.Trim().Length > 0) if (!a.StartsWith("-")) { i.Add(a); } else if (a.StartsWith("--")) { KeyValuePair<string, string> b = k(a); string c = b.Key.Substring(2); if (!j.ContainsKey(c)) { j.Add(c, new List<string>()); } j[c].Add(b.Value); } else { string b = a.Substring(1); for (int d = 0; d < b.Length; d++) { if (this.h.ContainsKey(b[d])) { this.h[b[d]]++; } else { this.h.Add(b[d], 1); } } } } KeyValuePair<string, string> k(string a) { string[] b = a.Split(new char[] { '=' }, 2); return new KeyValuePair<string, string>(b[0], (b.Length > 1) ? b[1] : null); } public string ToArguments() { var a = new List<string>(); foreach (string argument in this.getArguments()) a.Add(Escape(argument)); foreach (KeyValuePair<string, List<string>> option in this.j) { var b = "--" + Escape(option.Key); foreach (string optVal in option.Value) a.Add(b + ((optVal != null) ? "=" + Escape(optVal) : "")); } var c = (h.Count > 0) ? "-" : ""; foreach (KeyValuePair<char, int> flag in h) c += new String(flag.Key, flag.Value); a.Add(c); return String.Join(" ", a.ToArray()); } override public string ToString() { var a = new List<string>(); foreach (string key in j.Keys) a.Add(l(key) + ":[" + string.Join(",", j[key].ConvertAll<string>(b => l(b)).ToArray()) + "]"); var c = new List<string>(); foreach (char key in h.Keys) c.Add(key + ":" + h[key].ToString()); var d = new StringBuilder(); d.Append("{\"a\":["); d.Append(string.Join(",", i.ConvertAll<string>(b => l(b)).ToArray())); d.Append("],\"o\":[{"); d.Append(string.Join("},{", a)); d.Append("}],\"f\":[{"); d.Append(string.Join("},{", c)); d.Append("}]}"); return d.ToString(); } string l(string a) { return (a != null) ? "\"" + a.Replace(@"\", @"\\").Replace(@"""", @"\""") + "\"" : @"null"; } }
         public class BaconDebug { public const int OFF = 0; public const int FATAL = 1; public const int ERROR = 2; public const int WARN = 3; public const int INFO = 4; public const int DEBUG = 5; public const int TRACE = 6; Dictionary<int, string> h = new Dictionary<int, string>() { { OFF, "OFF" }, { FATAL, "FATAL" }, { ERROR, "ERROR" }, { WARN, "WARN" }, { INFO, "INFO" }, { DEBUG, "DEBUG" }, { TRACE, "TRACE" }, }; List<IMyTextPanel> j = new List<IMyTextPanel>(); MyGridProgram k; List<KeyValuePair<string, long>> l = new List<KeyValuePair<string, long>>(); int m = OFF; public string Format = @"[{0}-{1}.{2}][{3}][{4}][IC {5}/{6}] {7}"; bool n = true; public int remainingInstructions { get { return k.Runtime.MaxInstructionCount - k.Runtime.CurrentInstructionCount; } } public bool autoscroll { get { return n; } set { n = value; } } public void clearPanels() { for (int a = 0; a < j.Count; a++) j[a].WritePublicText(""); } public BaconDebug(string a, IMyGridTerminalSystem b, MyGridProgram c, int d, string e = "BaconDebug") { this.m = d; var f = new List<IMyTerminalBlock>(); b.GetBlocksOfType<IMyTextPanel>(f, ((IMyTerminalBlock g) => g.CustomName.Contains(a) && g.CubeGrid.Equals(c.Me.CubeGrid))); j = f.ConvertAll<IMyTextPanel>(g => g as IMyTextPanel); this.k = c; newScope(e); } public int getVerbosity() { return m; } public MyGridProgram getGridProgram() { return this.k; } public void newScope(string a) { l.Add(new KeyValuePair<string, long>(a, DateTime.Now.Ticks)); if (this.m.Equals(TRACE)) this.Trace("STEP INTO SCOPE"); } public void leaveScope() { if (l.Count > 0 && this.m.Equals(TRACE)) this.Trace("LEAVE SCOPE ({0} Ticks)", o(l[l.Count - 1].Value)); if (l.Count > 1) l.RemoveAt(l.Count - 1); } public string getSender() { if (l.Count > 0) if (this.m.Equals(TRACE)) { List<string> a = new List<string>(); foreach (KeyValuePair<string, long> entry in l) { a.Add(entry.Key); } return string.Join(">", a.ToArray()); } else { return l[l.Count - 1].Key; } return "NO SCOPE DEFINED"; } double o(long a) { long b = DateTime.Now.Ticks; return (Math.Max(a, b) - Math.Min(a, b)); } public void Fatal(string a, params object[] b) { Fatal(string.Format(a, b)); } public void Error(string a, params object[] b) { Error(string.Format(a, b)); } public void Warn(string a, params object[] b) { Warn(string.Format(a, b)); } public void Info(string a, params object[] b) { Info(string.Format(a, b)); } public void Debug(string a, params object[] b) { Debug(string.Format(a, b)); } public void Trace(string a, params object[] b) { Trace(string.Format(a, b)); } public void Fatal(string a) { add(a, FATAL); } public void Error(string a) { add(a, ERROR); } public void Warn(string a) { add(a, WARN); } public void Info(string a) { add(a, INFO); } public void Debug(string a) { add(a, DEBUG); } public void Trace(string a) { add(a, TRACE); } public void add(string a, int b) { p(a, b); if (b <= this.m) { var c = t(a, b); for (int d = 0; d < j.Count; d++) { var e = new List<string>(); e.AddRange(j[d].GetPublicText().Trim().Split(new char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)); e.Add(c); r(ref e, s(j[d])); var f = string.Join("\n", e.ToArray()); q(ref f); j[d].WritePublicText(f); } } } void p(string a, int b) { if (b <= ERROR) k.Echo(a); } void q(ref string a) { if (100000 < a.Length) { a = a.Substring(a.Length - 100000); int b = a.IndexOf('\n'); a = a.Substring(a.Length - b).TrimStart(new char[] { '\n', '\r' }); } } void r(ref List<string> a, int b) { if (autoscroll && 0 < b && b < a.Count) a.RemoveRange(0, a.Count - b); } int s(IMyTextPanel a) { float b = a.GetValueFloat("FontSize"); if (b == 0.0f) b = 0.01f; return Convert.ToInt32(Math.Ceiling(17.0f / b)); } string t(string a, int b) { DateTime c = DateTime.Now; object[] d = new object[] { c.ToShortDateString(), c.ToShortTimeString(), c.Millisecond.ToString().TrimStart('0'), u(b), getSender(), k.Runtime.CurrentInstructionCount, k.Runtime.MaxInstructionCount, a }; return string.Format(Format, d); } string u(int a) { if (h.ContainsKey(a)) return h[a]; return string.Format("`{0}`", a); } }
         #endregion included Libs
-
 
         #endregion End of  Game Code - Copy/Paste Code from this region into Block Script Window in Game
     }
