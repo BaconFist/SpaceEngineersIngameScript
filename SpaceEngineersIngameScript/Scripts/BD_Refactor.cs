@@ -486,6 +486,7 @@ namespace BD_Refactor
                 AvailabelPlugins["BaconDraw"].Add(new BMyDrawPlugin_BaconDraw_Text(Environment));
                 AvailabelPlugins["BaconDraw"].Add(new BMyDrawPlugin_BaconDraw_Background(Environment));
                 AvailabelPlugins["BaconDraw"].Add(new BMyDrawPlugin_BaconDraw_Color(Environment));
+                AvailabelPlugins["BaconDraw"].Add(new BMyDrawPlugin_BaconDraw_MoveTo(Environment));
                 #endregion DrawPlugin "BaconDraw"
 
                 Environment.Log.leaveScope();
@@ -1044,6 +1045,41 @@ namespace BD_Refactor
             {
                 canvas.color = Environment.Color.getColorCode(Args.getArguments()[1]);
                 Environment.Log.Trace("interpreted \"{0}\" as color '{1}'", Args.getArguments()[1], canvas.color);
+                return true;
+            }
+        }
+        class BMyDrawPlugin_BaconDraw_MoveTo : BMyDrawPlugin
+        {
+            public override string Command { get{ return "moveto"; } }
+            public override string Name { get{ return "BaconDraw"; } }
+
+            public BMyDrawPlugin_BaconDraw_MoveTo(BMyEnvironment Environment) : base(Environment) { }
+
+            public override bool isValid(BaconArgs Args)
+            {
+                if (!(Args.getArguments().Count == 2))
+                {
+                    Environment.Log.Trace("wrong number of arguments");
+                    return false;
+                }
+
+                if (!(new System.Text.RegularExpressions.Regex(@"\d+,\d+")).IsMatch(Args.getArguments()[1]))
+                {
+                    Environment.Log.Trace("argument in wrong format (must be a number)");
+                    return false;
+                }
+                return true;
+            }
+
+            public override bool TryInterpret(BaconArgs Args, ref BMyCanvas canvas)
+            {
+                Point coord;
+                if(!canvas.TryParseCoords(Args.getArguments()[1], out coord))
+                {
+                    Environment.Log.Trace("unable to paarse coordinates: {0}", Args.getArguments()[1]);
+                    return false;
+                }
+                canvas.setPosition(coord.X, coord.Y);
                 return true;
             }
         }
