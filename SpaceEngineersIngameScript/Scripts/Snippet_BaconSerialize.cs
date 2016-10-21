@@ -36,7 +36,7 @@ namespace Snippet_BaconSerialize
             }
         }
 
-        class BaconSerialize
+        public class BaconSerialize
         {
             List<string> data = new List<string>();
             
@@ -182,6 +182,10 @@ namespace Snippet_BaconSerialize
             {
                 return string.Join("", data);
             }
+        }
+        class min
+        {
+            public class BaconSerialize { List<string> j = new List<string>(); public interface ISerializeable { string j(); } public List<object> deSerialize(string a) { var b = new List<object>(); var c = a; int d = 0; int e = c.Length; for (int f = 0; f < e && c.Length > 0; f++) { var g = c[0]; c = c.Remove(0, 1); switch (g) { case 's': if (int.TryParse(c.Substring(0, c.IndexOf(':')), out d)) { c = c.Remove(0, c.IndexOf(':') + 1); b.Add(c.Substring(0, d)); c = c.Remove(0, d); } else throw new ArgumentException("unable to parse number " + c.Substring(0, c.IndexOf(':'))); break; case 'i': if (int.TryParse(c.Substring(0, c.IndexOf(':')), out d)) { c = c.Remove(0, c.IndexOf(':') + 1); int h = 0; if (int.TryParse(c.Substring(0, d), out h)) { b.Add(h); c = c.Remove(0, d); } else throw new ArgumentException("unable to parse int '" + c.Substring(0, d) + "' // " + c); } else throw new ArgumentException("unable to parse number '" + c.Substring(0, c.IndexOf(':')) + "' // " + c); break; case 'd': if (int.TryParse(c.Substring(0, c.IndexOf(':')), out d)) { c = c.Remove(0, c.IndexOf(':') + 1); double i = 0; if (double.TryParse(c.Substring(0, d), out i)) { b.Add(i); c = c.Remove(0, d); } else throw new ArgumentException("unable to parse double '" + c.Substring(0, d) + "' // " + c); } else throw new ArgumentException("unable to parse number " + c.Substring(0, c.IndexOf(':'))); break; case 'c': b.Add(c[0]); c = c.Remove(0, 1); break; case '0': b.Add(false); break; case '1': b.Add(true); break; case 'o': case 'S': if (int.TryParse(c.Substring(0, c.IndexOf(':')), out d)) { c = c.Remove(0, c.IndexOf(':') + 1); b.Add(c.Substring(0, d)); c = c.Remove(0, d); } else throw new ArgumentException("unable to parse number " + c.Substring(0, c.IndexOf(':'))); break; default: break; } } return b; } public void Add(ISerializeable a) { var b = "[" + a.GetType().ToString() + "]" + a.j(); j.Add("S" + b.Length.ToString() + ":" + b); } public void Add(object a) { var b = "[" + a.GetType().ToString() + "]" + a.ToString(); j.Add("o" + b.Length.ToString() + ":" + b); } public void Add(string a) { j.Add("s" + a.Length.ToString() + ":" + a); } public void Add(int a) { var b = a.ToString(); j.Add("i" + b.Length + ":" + b); } public void Add(double a) { var b = a.ToString(); j.Add("d" + b.Length + ":" + b); } public void Add(bool a) { j.Add(((a) ? "1" : "0")); } public void Add(char a) { j.Add("c" + a); } override public string ToString() { return string.Join("", j); } }
         } 
         #endregion End of  Game Code - Copy/Paste Code from this region into Block Script Window in Game
     }
