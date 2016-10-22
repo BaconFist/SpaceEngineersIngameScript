@@ -360,6 +360,10 @@ namespace BD_Refactor
             public BMyCanvas(int width, int height, BMyEnvironment Environment, string content) : this(width, height, Environment)
             {
                 Environment.Log.newScope("BMyCanvas.Canvas");
+                if(Environment.GlobalArgs.getOption("rawOutput").Count == 0)
+                {
+                    content = Environment.Color.Decode(this, content);
+                }
                 string[] data = content.Split(new char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
                 for(int i=0;i<data.Length && i < pixels.Length; i++)
                 {
