@@ -27,11 +27,10 @@ namespace BD_Refactor
         ===========
 
         */
-        BMyEnvironment Environment;
 
         public void Main(string argument)
         {
-            Environment = bootstrap(BaconArgs.parse(argument));
+            BMyEnvironment Environment = bootstrap(BaconArgs.parse(argument));
             run(Environment);
         }
 
@@ -1051,7 +1050,6 @@ namespace BD_Refactor
             }
             protected override bool TryExecute(BaconArgs Args, params object[] parameters)
             {
-                BMyCanvas canvas = parameters[0] as BMyCanvas;
                 int w = int.Parse(Args.getArguments()[indexSize].Split(',')[0]);
                 int h = int.Parse(Args.getArguments()[indexSize].Split(',')[1]);
                 string[] nameArg = Args.getArguments()[indexName].Split(':');
@@ -1104,7 +1102,7 @@ namespace BD_Refactor
             }
             protected override bool TryExecute(BaconArgs Args, params object[] parameters)
             {
-                BMyCanvas canvas = parameters[0] as BMyCanvas;
+           //     BMyCanvas canvas = parameters[0] as BMyCanvas;
                 // FONT is done. => Environment.Fonts 
                 // use canvas.overrideAt for drawing
                 // ' ' <= transparency
