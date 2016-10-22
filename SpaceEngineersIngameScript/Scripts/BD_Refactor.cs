@@ -431,6 +431,16 @@ namespace BD_Refactor
                         newPixelRow = newPixelRow.Substring(0, pixels[y].Length);
                     }
                     pixels[y] = newPixelRow.ToCharArray();
+                    for (int i= newPixelRow.IndexOf(' ');i > 0 && i<pixels[y].Length;i=newPixelRow.IndexOf(' '))
+                    {
+                        if(i< bufferY.Length)
+                        {
+                            pixels[y][i] = bufferY[i];
+                        } else
+                        {
+                            pixels[y][i] = '0';
+                        }
+                    }                    
                 } else
                 {
                     Environment.Log.Trace("Point({0},{1}) out of range(X:`[0,{2}[` Y:`[0,{3}[`) => can't insert data", x, y, pixels[0].Length, pixels.Length);
