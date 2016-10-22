@@ -412,10 +412,37 @@ namespace BD_Refactor
                 Environment.Log.leaveScope();
             }
             
+            public void overrideAt(int x, int y, string data)
+            {
+                Environment.Log.newScope("BMyCanvas.overrideAt");
+                if (inArea(x, y))
+                {
+                    string bufferY = new string(pixels[y]);
+                    string bufferLeft = bufferY.Substring(0, x);
+                    int startIndexBufferRight = x + data.Length;
+                    string bufferRight = (startIndexBufferRight < bufferY.Length) ? bufferY.Substring(startIndexBufferRight) : "";
+                    string newPixelRow = (bufferLeft + data + bufferRight);
+                    if(newPixelRow.Length > pixels[y].Length)
+                    {
+                        newPixelRow = newPixelRow.Substring(0, pixels[y].Length);
+                    }
+                    pixels[y] = newPixelRow.ToCharArray();
+                } else
+                {
+                    Environment.Log.Trace("Point({0},{1}) out of range(X:`[0,{2}[` Y:`[0,{3}[`) => can't insert data", x, y, pixels[0].Length, pixels.Length);
+                }
+                Environment.Log.leaveScope();
+            }
+
+            private bool inArea(int x, int y)
+            {
+                return (0 <= x && x < pixels[0].Length && 0 <= y && y < pixels.Length);
+            }
+
             public void setPixel(int x, int y)
             {
                 Environment.Log.newScope("BMyCanvas.setPixel");
-                if (0 <= x && x < pixels[0].Length && 0 <= y && y < pixels.Length)
+                if (inArea(x,y))
                 {
                     pixels[y][x] = color;
                     Environment.Log.Trace("set pixel {1},{2} to {0}", color, x, y);
@@ -678,7 +705,8 @@ namespace BD_Refactor
                     new BMyDrawPlugin_BaconDraw_MoveTo(Environment),
                     new BMyDrawPlugin_BaconDraw_Polygon(Environment),
                     new BMyDrawPlugin_BaconDraw_Rectangle(Environment),
-                    new BMyDrawPlugin_BaconDraw_Text(Environment)
+                    new BMyDrawPlugin_BaconDraw_Text(Environment),
+                    new BMyDrawPlugin_BaconDraw_Bitmap(Environment)
                 );
             }
         }
@@ -1116,6 +1144,33 @@ namespace BD_Refactor
                     return false;
                 }
                 canvas.setPosition(coord.X, coord.Y);
+                return true;
+            }
+        }
+        class BMyDrawPlugin_BaconDraw_Bitmap : BMyDrawPlugin
+        {
+            public override string Type { get { return "BaconDraw"; } }
+            protected override string subType { get { return "bitmap"; } }
+
+            public BMyDrawPlugin_BaconDraw_Bitmap(BMyEnvironment Environment) : base(Environment) { }
+
+            protected override bool isValid(BaconArgs Args)
+            {
+                if (!(Args.getArguments().Count > 0))
+                {
+                    Environment.Log.Trace("no argument defiend");
+                    return false;
+                }
+                return true;               
+            }
+
+            protected override bool TryExecute(BaconArgs Args, params object[] parameters)
+            {
+                BMyCanvas canvas = parameters[0] as BMyCanvas;
+                for(int i = 0; i < Args.getArguments().Count; i++)
+                {
+                    canvas.overrideAt(canvas.getPosition().X, canvas.getPosition().Y+i, Args.getArguments()[i]);
+                }
                 return true;
             }
         }
