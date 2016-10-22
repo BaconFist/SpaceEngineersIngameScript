@@ -491,7 +491,7 @@ namespace BD_Refactor
                 {
                     Environment.Log.Trace("generate image");
                     Environment.Log.leaveScope();
-                    return Environment.Color.ConvertFromRawImage(this);
+                    return Environment.Color.Encode(this);
                 }                
             }
         }
@@ -503,22 +503,46 @@ namespace BD_Refactor
         {
             public readonly BMyEnvironment Environment;
             protected Dictionary<char, char> map = new Dictionary<char, char>() {{'g','\uE001'},{'b','\uE002'},{'r','\uE003'},{'y','\uE004'},{'w','\uE006'},{'l','\uE00E'},{'d','\uE00F'}};
-
+            private System.Text.RegularExpressions.Regex RgxEncode;
+            private System.Text.RegularExpressions.Regex RgxDecode;
             public const char PLACEHOLDER_BG = '0';
 
             public BMyColor(BMyEnvironment Environment)
             {
                 this.Environment = Environment;
+                string colorKeys = "";
+                string colorValues = "";
+                foreach(KeyValuePair<char,char> C in map)
+                {
+                    colorKeys += C.Key;
+                    colorValues += C.Value;
+                }
+                colorKeys = System.Text.RegularExpressions.Regex.Escape(colorKeys);
+                colorValues = System.Text.RegularExpressions.Regex.Escape(colorValues);
+                RgxEncode = new System.Text.RegularExpressions.Regex(string.Format(@"[^{0}\n]", colorKeys), System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                RgxDecode = new System.Text.RegularExpressions.Regex(string.Format(@"[^{0}\n]", colorValues), System.Text.RegularExpressions.RegexOptions.IgnoreCase);
             }
 
-            public string ConvertFromRawImage(BMyCanvas canvas)
+            public string Encode(BMyCanvas canvas)
             {
-                Environment.Log.newScope("BMyColor.ConvertFromRawImage");
-                StringBuilder image = new StringBuilder((new System.Text.RegularExpressions.Regex(@"[^gbrywld\n]", System.Text.RegularExpressions.RegexOptions.IgnoreCase)).Replace(canvas.ToStringRaw().ToLowerInvariant(), PLACEHOLDER_BG.ToString()));
+                Environment.Log.newScope("BMyColor.Encode");
+                StringBuilder image = new StringBuilder(RgxEncode.Replace(canvas.ToStringRaw().ToLowerInvariant(), PLACEHOLDER_BG.ToString()));
                 image = image.Replace(PLACEHOLDER_BG, canvas.background);
                 foreach (KeyValuePair<char, char> color in map)
                 {
                     image = image.Replace(color.Key, color.Value);
+                }
+                Environment.Log.leaveScope();
+                return image.ToString();
+            }
+
+            public string Decode(BMyCanvas canvas, string data)
+            {
+                Environment.Log.newScope("BMyColor.Decode");
+                StringBuilder image = new StringBuilder(RgxDecode.Replace(canvas.ToStringRaw().ToLowerInvariant(), PLACEHOLDER_BG.ToString()));
+                foreach (KeyValuePair<char, char> color in map)
+                {
+                    image = image.Replace(color.Value, color.Key);
                 }
                 Environment.Log.leaveScope();
                 return image.ToString();
