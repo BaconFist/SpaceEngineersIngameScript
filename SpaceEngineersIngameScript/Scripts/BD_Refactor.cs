@@ -1105,6 +1105,11 @@ namespace BD_Refactor
             protected override bool TryExecute(BaconArgs Args, params object[] parameters)
             {
                 BMyCanvas canvas = parameters[0] as BMyCanvas;
+                // FONT is done. => Environment.Fonts 
+                // use canvas.overrideAt for drawing
+                // ' ' <= transparency
+
+
                 Environment.Log.Trace("NotImplementedException");
                 return false;
             }
