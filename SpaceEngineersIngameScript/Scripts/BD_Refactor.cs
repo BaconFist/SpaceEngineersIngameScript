@@ -34,6 +34,7 @@ namespace BD_Refactor
             run(Environment);
         }
 
+   
         void run(BMyEnvironment Environment)
         {
             Environment.Log.newScope("run");
@@ -73,8 +74,110 @@ namespace BD_Refactor
             BaconDebug Debugger = getDebugger(Args);
             Debugger.newScope("bootstrap");
             BMyEnvironment Env = new BMyEnvironment(this, Args, Debugger);
+            addDefaultFont(Env);
             Env.Log.leaveScope();
             return Env;
+        }
+
+        void addDefaultFont(BMyEnvironment E)
+        {
+            BMyFont font = new BMyFont("-", "", 5, 5, E);
+            font.Add('\u0021', new string[] { "  1  ", "  1  ", "  1  ", "     ", "  1  " }); //'!'
+            font.Add('\u0022', new string[] { " 1 1 ", " 1 1 ", "     ", "     ", "     " }); //'"'
+            font.Add('\u0023', new string[] { " 1 1 ", "11111", " 1 1 ", "11111", " 1 1 " }); //'#'
+            font.Add('\u0024', new string[] { " 1111", "1 1  ", " 111 ", "  1 1", "1111 " }); //'$'
+            font.Add('\u0025', new string[] { "11  1", "11 1 ", "  1  ", " 1 11", "1  11" }); //'%'
+            font.Add('\u0027', new string[] { "  1  ", "  1  ", "     ", "     ", "     " }); //'''
+            font.Add('\u0028', new string[] { "   1 ", "  1  ", "     ", "  1  ", "   1 " }); //'('
+            font.Add('\u0029', new string[] { " 1   ", "  1  ", "  1  ", "  1  ", " 1   " }); //')'
+            font.Add('\u002A', new string[] { " 1 1 ", "  1  ", " 1 1 ", "     ", "     " }); //'*'
+            font.Add('\u002C', new string[] { "     ", "     ", "     ", "  1  ", " 1   " }); //','
+            font.Add('\u002D', new string[] { "     ", "     ", " 111 ", "     ", "     " }); //'-'
+            font.Add('\u002E', new string[] { "     ", "     ", "     ", "     ", "  1  " }); //'.'
+            font.Add('\u002F', new string[] { "    1", "   1 ", "  1  ", " 1   ", "1    " }); //'/'
+            font.Add('\u0030', new string[] { " 111 ", "1  11", "1 1 1", "11  1", " 111 " }); //'0'
+            font.Add('\u0031', new string[] { "  11 ", "   1 ", "   1 ", "   1 ", "  111" }); //'1'
+            font.Add('\u0032', new string[] { "1111 ", "    1", " 111 ", "1    ", "11111" }); //'2'
+            font.Add('\u0033', new string[] { "1111 ", "    1", "  11 ", "    1", "1111 " }); //'3'
+            font.Add('\u0034', new string[] { "  11 ", " 1 1 ", "1  1 ", "11111", "   1 " }); //'4'
+            font.Add('\u0035', new string[] { "111 1", "1    ", "111  ", "   11", "1111 " }); //'5'
+            font.Add('\u0036', new string[] { " 1111", "1   1", "1111 ", "1    ", " 111 " }); //'6'
+            font.Add('\u0037', new string[] { "11111", "    1", "   1 ", "  1  ", " 1   " }); //'7'
+            font.Add('\u0038', new string[] { " 111 ", "1   1", " 111 ", "1   1", " 111 " }); //'8'
+            font.Add('\u0039', new string[] { " 111 ", "1   1", " 1111", "    1", "1111 " }); //'9'
+            font.Add('\u003A', new string[] { "     ", "  1  ", "     ", "  1  ", "     " }); //':'
+            font.Add('\u003B', new string[] { "     ", "  1  ", "     ", "  1  ", " 1   " }); //';'
+            font.Add('\u003C', new string[] { "    1", "   1 ", "  1  ", "   1 ", "    1" }); //'<'
+            font.Add('\u003D', new string[] { "     ", " 111 ", "     ", " 111 ", "     " }); //'='
+            font.Add('\u003E', new string[] { "1    ", " 1   ", "  1  ", " 1   ", "1    " }); //'>'
+            font.Add('\u003F', new string[] { " 111 ", "    1", "  11 ", "     ", "  1  " }); //'?'
+            font.Add('\u0040', new string[] { " 1111", "1   1", "1 111", "1 11 ", " 1111" }); //'@'
+            font.Add('\u0041', new string[] { "  1  ", " 1 1 ", "1   1", "11111", "1   1" }); //'A'
+            font.Add('\u0061', new string[] { "  1  ", " 1 1 ", "1   1", "11111", "1   1" }); //'a'
+            font.Add('\u0042', new string[] { "1111 ", "1   1", "1111 ", "1   1", "1111 " }); //'B'
+            font.Add('\u0062', new string[] { "1111 ", "1   1", "1111 ", "1   1", "1111 " }); //'b'
+            font.Add('\u0043', new string[] { " 1111", "1    ", "1    ", "1    ", " 1111" }); //'C'
+            font.Add('\u0063', new string[] { " 1111", "1    ", "1    ", "1    ", " 1111" }); //'c'
+            font.Add('\u0044', new string[] { "1111 ", "1   1", "1    ", "1   1", "1111 " }); //'D'
+            font.Add('\u0064', new string[] { "1111 ", "1   1", "1    ", "1   1", "1111 " }); //'d'
+            font.Add('\u0045', new string[] { "11111", "1    ", "111  ", "1    ", "11111" }); //'E'
+            font.Add('\u0065', new string[] { "11111", "1    ", "111  ", "1    ", "11111" }); //'e'
+            font.Add('\u0046', new string[] { "11111", "1    ", "111  ", "1    ", "1    " }); //'F'
+            font.Add('\u0066', new string[] { "11111", "1    ", "111  ", "1    ", "1    " }); //'f'
+            font.Add('\u0047', new string[] { " 1111", "1    ", "1  11", "1   1", " 1111" }); //'G'
+            font.Add('\u0067', new string[] { " 1111", "1    ", "1  11", "1   1", " 1111" }); //'g'
+            font.Add('\u0048', new string[] { "1   1", "1   1", "11111", "1   1", "1   1" }); //'H'
+            font.Add('\u0068', new string[] { "1   1", "1   1", "11111", "1   1", "1   1" }); //'h'
+            font.Add('\u0049', new string[] { "11111", "  1  ", "  1  ", "  1  ", "11111" }); //'I'
+            font.Add('\u0069', new string[] { "11111", "  1  ", "  1  ", "  1  ", "11111" }); //'i'
+            font.Add('\u004A', new string[] { "11111", "   1 ", "   1 ", "1  1 ", " 11  " }); //'J'
+            font.Add('\u006A', new string[] { "11111", "   1 ", "   1 ", "1  1 ", " 11  " }); //'j'
+            font.Add('\u004B', new string[] { "1   1", "1  1 ", "111  ", "1  1 ", "1   1" }); //'K'
+            font.Add('\u006B', new string[] { "1   1", "1  1 ", "111  ", "1  1 ", "1   1" }); //'k'
+            font.Add('\u004C', new string[] { "1    ", "1    ", "1    ", "1    ", "11111" }); //'L'
+            font.Add('\u006C', new string[] { "1    ", "1    ", "1    ", "1    ", "11111" }); //'l'
+            font.Add('\u004D', new string[] { "1   1", "11 11", "1 1 1", "1   1", "1   1" }); //'M'
+            font.Add('\u006D', new string[] { "1   1", "11 11", "1 1 1", "1   1", "1   1" }); //'m'
+            font.Add('\u004E', new string[] { "1   1", "11  1", "1 1 1", "1  11", "1   1" }); //'N'
+            font.Add('\u006E', new string[] { "1   1", "11  1", "1 1 1", "1  11", "1   1" }); //'n'
+            font.Add('\u004F', new string[] { " 111 ", "1   1", "1   1", "1   1", " 111 " }); //'O'
+            font.Add('\u006F', new string[] { " 111 ", "1   1", "1   1", "1   1", " 111 " }); //'o'
+            font.Add('\u0050', new string[] { "1111 ", "1   1", "1111 ", "1    ", "1    " }); //'P'
+            font.Add('\u0070', new string[] { "1111 ", "1   1", "1111 ", "1    ", "1    " }); //'p'
+            font.Add('\u0051', new string[] { " 111 ", "1   1", "1 1 1", "1  1 ", " 11 1" }); //'Q'
+            font.Add('\u0071', new string[] { " 111 ", "1   1", "1 1 1", "1  1 ", " 11 1" }); //'q'
+            font.Add('\u0052', new string[] { "1111 ", "1   1", "1111 ", "1   1", "1   1" }); //'R'
+            font.Add('\u0072', new string[] { "1111 ", "1   1", "1111 ", "1   1", "1   1" }); //'r'
+            font.Add('\u0053', new string[] { " 1111", "1    ", " 111 ", "    1", "1111 " }); //'S'
+            font.Add('\u0073', new string[] { " 1111", "1    ", " 111 ", "    1", "1111 " }); //'s'
+            font.Add('\u0054', new string[] { "11111", "  1  ", "  1  ", "  1  ", "  1  " }); //'T'
+            font.Add('\u0074', new string[] { "11111", "  1  ", "  1  ", "  1  ", "  1  " }); //'t'
+            font.Add('\u0055', new string[] { "1   1", "1   1", "1   1", "1   1", " 111 " }); //'U'
+            font.Add('\u0075', new string[] { "1   1", "1   1", "1   1", "1   1", " 111 " }); //'u'
+            font.Add('\u0056', new string[] { "1   1", "1   1", "1   1", " 1 1 ", "  1  " }); //'V'
+            font.Add('\u0076', new string[] { "1   1", "1   1", "1   1", " 1 1 ", "  1  " }); //'v'
+            font.Add('\u0057', new string[] { "1   1", "1   1", "1 1 1", "11 11", "1   1" }); //'W'
+            font.Add('\u0077', new string[] { "1   1", "1   1", "1 1 1", "11 11", "1   1" }); //'w'
+            font.Add('\u0058', new string[] { "1   1", " 1 1 ", "  1  ", " 1 1 ", "1   1" }); //'X'
+            font.Add('\u0078', new string[] { "1   1", " 1 1 ", "  1  ", " 1 1 ", "1   1" }); //'x'
+            font.Add('\u0059', new string[] { "1   1", " 1 1 ", "  1  ", "  1  ", "  1  " }); //'Y'
+            font.Add('\u0079', new string[] { "1   1", " 1 1 ", "  1  ", "  1  ", "  1  " }); //'y'
+            font.Add('\u005A', new string[] { "11111", "   1 ", "  1  ", " 1   ", "11111" }); //'Z'
+            font.Add('\u007A', new string[] { "11111", "   1 ", "  1  ", " 1   ", "11111" }); //'z'
+            font.Add('\u005B', new string[] { "  11 ", "  1  ", "  1  ", "  1  ", "  11 " }); //'['
+            font.Add('\u005C', new string[] { "1    ", " 1   ", "  1  ", "   1 ", "    1" }); //'\'
+            font.Add('\u005D', new string[] { " 11  ", "  1  ", "  1  ", "  1  ", " 11  " }); //']'
+            font.Add('\u005E', new string[] { "  1  ", " 1 1 ", "     ", "     ", "     " }); //'^'
+            font.Add('\u005F', new string[] { "     ", "     ", "     ", "     ", "11111" }); //'_'
+            font.Add('\u0060', new string[] { "  1  ", "   1 ", "     ", "     ", "     " }); //'`'
+            font.Add('\u007B', new string[] { "  11 ", "  1  ", " 1   ", "  1  ", "  11 " }); //'{'
+            font.Add('\u007C', new string[] { "  1  ", "  1  ", "  1  ", "  1  ", "  1  " }); //'|'
+            font.Add('\u007D', new string[] { " 11  ", "  1  ", "   1 ", "  1  ", " 11  " }); //'}'
+            font.Add('\u007E', new string[] { "     ", " 1   ", "1 1 1", "   1 ", "     " }); //'~'
+            font.Add('\u0020', new string[] { "     ", "     ", "     ", "     ", "     " }); //' '
+            
+            E.Fonts.Add(font.Name, font);
+            E.Fonts.Add("default", new BMyFont("default", "-", 5, 5, E));
         }
 
         BaconDebug getDebugger(BaconArgs Args)
@@ -1002,7 +1105,7 @@ namespace BD_Refactor
         {
             protected override string subType { get { return "font"; }}
             public override string Type { get { return "BaconDraw"; } }
-            private System.Text.RegularExpressions.Regex GlyphRgx = new System.Text.RegularExpressions.Regex(@"'.'\S+");
+            private System.Text.RegularExpressions.Regex GlyphRgx = new System.Text.RegularExpressions.Regex(@"'.'[\S ]+");
             private System.Text.RegularExpressions.Regex SizeRgx = new System.Text.RegularExpressions.Regex(@"\d+x\d+");
             private System.Text.RegularExpressions.Regex NameRgx = new System.Text.RegularExpressions.Regex(@"[^\s:]+(:[^\s:]+)?");
             private string splitChunkPatternFormat = @"(\S{{{0}}})";
