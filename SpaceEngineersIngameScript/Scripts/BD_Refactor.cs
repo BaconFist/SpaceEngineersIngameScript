@@ -511,6 +511,8 @@ namespace BD_Refactor
             public char background = 'd';
             private Point Position;
             public readonly BMyEnvironment Environment;
+            public int Width { get { return (pixels.Length > 0) ? pixels[0].Length : 0; } }
+            public int Height { get { return pixels.Length; } }
 
             public BMyCanvas(int width, int height, BMyEnvironment Environment, string content) : this(width, height, Environment)
             {
