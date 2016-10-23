@@ -1264,19 +1264,43 @@ namespace BD_Refactor
             public BMyDrawPlugin_BaconDraw_Text(BMyEnvironment Environment) : base(Environment){}
             protected override bool isValid(BaconArgs Args)
             {
-                Environment.Log.Trace("NotImplementedException");
-                return false;
+                if (Args.getArguments().Count < 2)
+                {
+                    Environment.Log.Trace("not enough arguments");
+                    return false;
+                }
+                return true;
             }
             protected override bool TryExecute(BaconArgs Args, params object[] parameters)
             {
-           //     BMyCanvas canvas = parameters[0] as BMyCanvas;
-                // FONT is done. => Environment.Fonts 
-                // use canvas.overrideAt for drawing
-                // ' ' <= transparency
+                BMyCanvas canvas = parameters[0] as BMyCanvas;
+                BMyFont font;
+                if (!Environment.TryFindFontByName(Args.getArguments()[0], out font))
+                {
+                    Environment.Log.Trace("can't render text with {0}", Args.getArguments()[0]);
+                    return false;
+                }
+                Point posInit = canvas.getPosition();
+                bool wordwrap = (Args.getOption("word-wrap").Count > 0);
+                string text = string.Join(" ",Args.getArguments().GetRange(1, Args.getArguments().Count - 2).ToArray());
+                foreach(char glyph in text.ToCharArray())
+                {
+                    if(wordwrap && (canvas.getPosition().X + font.Width) >= canvas.Width)
+                    {
+                        canvas.setPosition(posInit.X, canvas.getPosition().Y+font.Height);
+                    }
+                    string[] data = font.getGlyph(glyph);
+                    for(int y = 0; y < font.Height; y++)
+                    {
+                        if (y < data.Length && 0 < data[y].Trim().Length)
+                        {
+                            canvas.overrideAt(canvas.getPosition().X, canvas.getPosition().Y + y, data[y]);
+                        }
+                    }
+                    canvas.setPosition(canvas.getPosition().X + font.Width, canvas.getPosition().Y);
+                }
 
-
-                Environment.Log.Trace("NotImplementedException");
-                return false;
+                return true;
             }
         }
         class BMyDrawPlugin_BaconDraw_Background : BMyDrawPlugin
