@@ -106,7 +106,7 @@ namespace Snippet_BaconDebug
             public void leaveScope()
             {
                 if(callsStack.Count > 0 && this.verbosity.Equals(TRACE)){
-                    this.Trace("LEAVE SCOPE ({0} Ticks)", getTimeDiffInTicks(callsStack[callsStack.Count - 1].Value));
+                    this.Trace("LEAVE SCOPE ({0} Ticks)", getTimeDiffInTicks((callsStack.Count > 0?callsStack[callsStack.Count - 1].Value:0)));
                 }
                 if (callsStack.Count > 1)
                 {
