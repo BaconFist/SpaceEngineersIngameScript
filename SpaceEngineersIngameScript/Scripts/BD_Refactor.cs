@@ -641,12 +641,13 @@ namespace BD_Refactor
             {
                 Environment.Log.newScope("BMyCanvas.ToStringRaw");
                 List<string> slug = new List<string>();
-                Environment.Log.Trace("generate raw image");
                 foreach (char[] line in pixels)
                 {
                     string buffer = new string(line);
+                    Environment.Log.Trace("add line with a length of {0}", buffer.Length);
                     slug.Add(buffer);
-                }                
+                }
+                Environment.Log.Trace("created raw image with {0} line(s)", slug.Count);
                 Environment.Log.leaveScope();
                 return string.Join("\n", slug.ToArray());
             }
@@ -656,13 +657,15 @@ namespace BD_Refactor
                 Environment.Log.newScope("BMyCanvas.ToString");
                 if(Environment.GlobalArgs.getOption("rawOutput").Count > 0)
                 {
+                    string buffer = ToStringRaw();
                     Environment.Log.leaveScope();
-                    return ToStringRaw();
+                    return buffer;
                 } else
                 {
-                    Environment.Log.Trace("generate image");
+                    string buffer = Environment.Color.Encode(this);
+                    Environment.Log.Trace("created encoded image");
                     Environment.Log.leaveScope();
-                    return Environment.Color.Encode(this);
+                    return buffer;
                 }                
             }
         }
