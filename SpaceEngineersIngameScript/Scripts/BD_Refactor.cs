@@ -297,7 +297,8 @@ namespace BD_Refactor
 
             public bool hasChanged()
             {
-                return !this.lastKnownCodeHash.Equals(this.currentCodeHash);
+                return true;
+               // return !this.lastKnownCodeHash.Equals(this.currentCodeHash);
             }
 
             public bool isFinished()
