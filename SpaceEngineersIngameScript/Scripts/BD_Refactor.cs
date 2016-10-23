@@ -431,6 +431,22 @@ namespace BD_Refactor
                 Log.leaveScope();
             }
 
+            public bool TryFindFontByName(string name, out BMyFont font)
+            {
+                Log.newScope("BMyEnvironment.TryFindFontByName");
+                if (Fonts.ContainsKey(name))
+                {
+                    font = Fonts[name];
+                    Log.Trace("Matching font \"{0}\" {1}x{2}", font.Name, font.Width, font.Height);
+                    Log.leaveScope();
+                    return true;
+                }
+                font = null;
+                Log.Trace("font \"{0}\" not found", name);
+                Log.leaveScope();
+                return false;
+            }
+
             public bool TryAddFont(BMyFont font)
             {
                 Log.newScope("BMyEnvironment.TryAddFont");
