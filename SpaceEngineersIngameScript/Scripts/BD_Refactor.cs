@@ -31,7 +31,7 @@ namespace BD_Refactor
 
         public void Main(string argument)
         {
-            
+            Echo("- START -");
             try
             {
                 Environment = bootstrap(BaconArgs.parse(argument));
@@ -46,7 +46,8 @@ namespace BD_Refactor
                 }
                 Environment?.Log?.Fatal(fatalError);
                 Echo(fatalError);
-            }   
+            }
+            Echo("- END -");
         }
 
    
@@ -56,11 +57,14 @@ namespace BD_Refactor
             BMyPanelTaskBag Bag = Environment.PanelTaskBagFactory.FromArguments(Environment.GlobalArgs, "[BaconDraw]", "[BaconDrawIgnoreGrid]");
             foreach(KeyValuePair<long,BMyPanelTask> Entry in Bag)
             {
+                Environment.Log.Trace("current Task: {0}:\"{1}\"", Entry.Key, Entry.Value.Panel.CustomName);
                 BMyPanelTask Task = Entry.Value;
                 if (!Task.hasChanged())
                 {
+                    Environment.Log.Trace("panel not changed => skip");
                     continue;
                 }
+                Environment.Log.Trace("panel has changed");
                 BMyCanvas canvas = Environment.CanvasFactory.FromTask(Task);
                 for (; !Task.isFinished() && canContinue(); Task.nextLineToProgress++)
                 {
@@ -78,7 +82,15 @@ namespace BD_Refactor
                     InstructionArgs.getArguments().RemoveAt(0);
                     Environment.DrawPlugins.TryRun(command, InstructionArgs, canvas);   
                 }
+                if (Task.isFinished())
+                {
+                    Environment.Log.Trace("Task finished: End of Code");
+                } else
+                {
+                    Environment.Log.Trace("Task delayed: instruction limit");
+                }
                 Task.Save(canvas);
+                Environment.Log.Trace("END Task: {0}:\"{1}\"", Entry.Key, Entry.Value.Panel.CustomName);
             }
             Environment.Log.leaveScope();
         }
@@ -202,24 +214,22 @@ namespace BD_Refactor
 
         BaconDebug getDebugger(BaconArgs Args)
         {
-            int verbosity = 0;
-            switch (Args.getFlag('v'))
+            int verbosity = Math.Min(Args.getFlag('v'), BaconDebug.INFO);
+            if (Args.getFlag('v') >= BaconDebug.TRACE)
             {
-                case BaconDebug.TRACE:
-                case BaconDebug.DEBUG:
-                    if(Args.getOption("debug").Count > 0)
-                    {
-                        verbosity = BaconDebug.DEBUG;
-                    } else
-                    {
-                        verbosity = (BaconDebug.INFO);
-                    }
-                    break;
-                default:
-                    verbosity = Args.getFlag('v');
-                    break;
-        }
-        string tag = (Args.getOption("logScreen").Count > 0) ? Args.getOption("logScreen")[0] : "[BaconDraw_DEBUG]";
+                if(Args.getOption("debug").Count > 0)
+                {
+                    verbosity = BaconDebug.TRACE;
+                }
+            } else if (Args.getFlag('v') >= BaconDebug.DEBUG)
+            {
+                if (Args.getOption("debug").Count > 0)
+                {
+                    verbosity = BaconDebug.DEBUG;
+                }
+            }
+            Echo(string.Format("Log Verbosity: {0}; -v Flag = {1}; --debug: {2}", verbosity, Args.getFlag('v'), (Args.getOption("debug").Count>0)));
+            string tag = (Args.getOption("logScreen").Count > 0) ? Args.getOption("logScreen")[0] : "[BaconDraw_DEBUG]";
             BaconDebug Debugger = new BaconDebug(tag, GridTerminalSystem, this, verbosity, "BaconDraw");
             Debugger.Format = (Args.getOption("logFormat").Count > 0)?Args.getOption("logFormat")[0]:@"[{0}-{1}.{2}][{3}][IC {5}/{6}][{4}] {7}";
             Debugger.autoscroll = false;
@@ -721,25 +731,31 @@ namespace BD_Refactor
             public BMyPluginHandler(BMyEnvironment Environment)
             {
                 this.Environment = Environment;
-                bootstrap();
             }
-            protected void bootstrap()
-            {
-                // add lsit of available plugins;
-            }
+
             protected void AddAvailable(params T[] Plugins)
             {
+                Environment.Log.newScope("BMyPluginHandler.AddAvailable");
+                Environment.Log.Trace("Try to register {0} Plugin(s)", Plugins.Length);
+
                 foreach (T Plugin in Plugins)
                 {
+                    Environment.Log.Trace("Try to register Plugin {0}/{1}", Plugin.Type, Plugin.SubType);
                     if (!AvailablePlugins.ContainsKey(Plugin.Type))
                     {
+                        Environment.Log.Trace("create new Collection for Type \"{0}\"", Plugin.Type);
                         AvailablePlugins.Add(Plugin.Type, new List<T>());
                     }
                     if (!AvailablePlugins[Plugin.Type].Contains(Plugin))
                     {
+                        Environment.Log.Trace("Add plugin \"{0}/{1}\"", Plugin.Type, Plugin.SubType);
                         AvailablePlugins[Plugin.Type].Add(Plugin);
+                    } else
+                    {
+                        Environment.Log.Trace("Cant add plugin \"{0}/{1}\". Plugin already exists.", Plugin.Type, Plugin.SubType);
                     }
                 }
+                Environment.Log.leaveScope();
             }
             public bool FindBySubtype(string SubType, out List<T> Matches)
             {
@@ -792,6 +808,7 @@ namespace BD_Refactor
             public bool TryRun(string SubType, BaconArgs Args, params object[] parameters)
             {
                 Environment.Log.newScope("BMyPluginHandler.TryRun");
+                Environment.Log.Trace(@"subtype ""{0}"" with {1}", SubType, Args.ToString());
                 List<T> Plugins;
                 if (!FindBySubtype(SubType, out Plugins))
                 {
@@ -808,10 +825,14 @@ namespace BD_Refactor
                     {
                         Environment.Log.Trace("Success on plugin \"{0}/{1}\" with {2}", Plugins[i].Type, Plugins[i].SubType, Args.ToString());
                     }
+                    else
+                    {
+                        Environment.Log.Trace("Failed on plugin \"{0}/{1}\" with {2}", Plugins[i].Type, Plugins[i].SubType, Args.ToString());
+                    }
                 }
                 if (!success)
                 {
-                    Environment.Log.Trace("No success with {1}", Args.ToString());
+                    Environment.Log.Trace("No success with {0}", Args.ToString());
                 }
 
                 Environment.Log.leaveScope();
