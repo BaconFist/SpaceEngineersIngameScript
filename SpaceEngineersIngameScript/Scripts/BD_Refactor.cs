@@ -644,7 +644,6 @@ namespace BD_Refactor
                 foreach (char[] line in pixels)
                 {
                     string buffer = new string(line);
-                    Environment.Log.Trace("add line with a length of {0}", buffer.Length);
                     slug.Add(buffer);
                 }
                 Environment.Log.Trace("created raw image with {0} line(s)", slug.Count);
