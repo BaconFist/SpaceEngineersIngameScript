@@ -27,11 +27,26 @@ namespace BD_Refactor
         ===========
 
         */
+        BMyEnvironment Environment;
 
         public void Main(string argument)
         {
-            BMyEnvironment Environment = bootstrap(BaconArgs.parse(argument));
-            run(Environment);
+            
+            try
+            {
+                Environment = bootstrap(BaconArgs.parse(argument));
+                run(Environment);
+            }
+            catch (Exception e)
+            {
+                string fatalError = string.Format("Message: {0}\nSender:{1}\nStackTrace{2}", e.Message, e.Source, e.StackTrace);
+                foreach(var data in e.Data)
+                {
+                    fatalError += "\n"+data.ToString();
+                }
+                Environment?.Log?.Fatal(fatalError);
+                Echo(fatalError);
+            }   
         }
 
    
@@ -275,12 +290,16 @@ namespace BD_Refactor
 
             public void Save(BMyCanvas canvas)
             {
+                Environment.Log.newScope("BMyPanelTask.Save");
                 BaconArgs PrivateTextArgs = new BaconArgs();
                 PrivateTextArgs.add(string.Format(@"--{0}={1}", "lastKnownCodeHash", this.currentCodeHash));
+                Environment.Log.Trace("Snapshot: {0} => {1}", "lastKnownCodeHash", this.currentCodeHash);
                 PrivateTextArgs.add(string.Format(@"--{0}={1}", "nextLineToProgress", this.nextLineToProgress));
+                Environment.Log.Trace("Snapshot: {0} => {1}","nextLineToProgress", this.nextLineToProgress);
                 Panel.WritePrivateTitle(PrivateTextArgs.ToArguments());
                 Panel.WritePublicText(canvas.ToString());
                 Panel.ShowPublicTextOnScreen();
+                Environment.Log.leaveScope();
             }
         }
         #endregion PANELTASK
