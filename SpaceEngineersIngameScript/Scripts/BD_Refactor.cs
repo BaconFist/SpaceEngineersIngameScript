@@ -107,6 +107,14 @@ namespace BD_Refactor
             Debugger.newScope("bootstrap");
             BMyEnvironment Env = new BMyEnvironment(this, Args, Debugger);
             addDefaultFont(Env);
+            #region enable plugins
+            foreach(string pluginame in Args.getOption("plugin"))
+            {
+                Env.DrawPlugins.TryEnable(pluginame);
+            }
+            // default plugins
+            Env.DrawPlugins.TryEnable("BaconDraw");
+            #endregion enbale plugins
             Env.Log.leaveScope();
             return Env;
         }
@@ -872,9 +880,7 @@ namespace BD_Refactor
         #region Pluginhandlers
         class BMyDrawPluginHandler : BMyPluginHandler<BMyDrawPlugin>
         {
-            public BMyDrawPluginHandler(BMyEnvironment Environment) : base(Environment) { }
-            new protected void bootstrap()
-            {
+            public BMyDrawPluginHandler(BMyEnvironment Environment) : base(Environment) {
                 AddAvailable(
                     new BMyDrawPlugin_BaconDraw_Background(Environment),
                     new BMyDrawPlugin_BaconDraw_Circle(Environment),
