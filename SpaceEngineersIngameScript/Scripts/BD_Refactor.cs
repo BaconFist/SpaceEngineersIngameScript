@@ -64,7 +64,12 @@ namespace BD_Refactor
                 BMyCanvas canvas = Environment.CanvasFactory.FromTask(Task);
                 for (; !Task.isFinished() && canContinue(); Task.nextLineToProgress++)
                 {
-                    BaconArgs InstructionArgs = BaconArgs.parse(Task[Task.nextLineToProgress]);
+                    
+                    BaconArgs InstructionArgs = BaconArgs.parse(
+                        (0 <= Task.nextLineToProgress && Task.nextLineToProgress < Task.Count)
+                        ?Task[Task.nextLineToProgress]
+                        :""
+                    );
                     if (InstructionArgs.getArguments().Count == 0)
                     {
                         continue;
@@ -200,27 +205,21 @@ namespace BD_Refactor
             int verbosity = 0;
             switch (Args.getFlag('v'))
             {
-                case BaconDebug.OFF:
-                case BaconDebug.INFO:
-                case BaconDebug.WARN:
-                case BaconDebug.ERROR:
-                case BaconDebug.FATAL:
-                    verbosity = Args.getFlag('v');
-                    break;
+                case BaconDebug.TRACE:
                 case BaconDebug.DEBUG:
                     if(Args.getOption("debug").Count > 0)
                     {
                         verbosity = BaconDebug.DEBUG;
-                    }
-                    break;
-                case BaconDebug.TRACE:
-                    if (Args.getOption("debug-trace").Count > 0)
+                    } else
                     {
-                        verbosity = BaconDebug.TRACE;
+                        verbosity = (BaconDebug.INFO);
                     }
                     break;
-            }
-            string tag = (Args.getOption("logScreen").Count > 0) ? Args.getOption("logScreen")[0] : "[BaconDraw_DEBUG]";
+                default:
+                    verbosity = Args.getFlag('v');
+                    break;
+        }
+        string tag = (Args.getOption("logScreen").Count > 0) ? Args.getOption("logScreen")[0] : "[BaconDraw_DEBUG]";
             BaconDebug Debugger = new BaconDebug(tag, GridTerminalSystem, this, verbosity, "BaconDraw");
             Debugger.Format = (Args.getOption("logFormat").Count > 0)?Args.getOption("logFormat")[0]:@"[{0}-{1}.{2}][{3}][IC {5}/{6}][{4}] {7}";
             Debugger.autoscroll = false;
