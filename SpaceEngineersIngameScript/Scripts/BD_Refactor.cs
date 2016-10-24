@@ -223,6 +223,11 @@ namespace BD_Refactor
         BaconDebug getDebugger(BaconArgs Args)
         {
             int verbosity = Math.Min(Args.getFlag('v'), BaconDebug.INFO);
+            if(verbosity == BaconDebug.OFF)
+            {
+                Echo("Log/Debugger diabled");
+                return null;
+            }
             if (Args.getFlag('v') >= BaconDebug.TRACE)
             {
                 if(Args.getOption("debug").Count > 0)
