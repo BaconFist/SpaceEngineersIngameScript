@@ -492,7 +492,7 @@ namespace BD_Refactor
                 }
                 if (Environment.Fonts.ContainsKey(Extends))
                 {
-                    Environment.Log.Trace("look up in parent font \"{1}\"", Extends);
+                    Environment.Log.Trace("look up in parent font \"{0}\"", Extends);
                     Environment.Log.leaveScope();
                     return Environment.Fonts[Extends].getGlyph(glyph);
                 }
@@ -1284,26 +1284,28 @@ namespace BD_Refactor
                 }
                 Point posInit = canvas.getPosition();
                 bool wordwrap = (Args.getOption("word-wrap").Count > 0);
-                string text = string.Join(" ",Args.getArguments().GetRange(1, Args.getArguments().Count - 2).ToArray());
-                Environment.Log.Trace("Text \"{0}\"", text);
-                foreach(char glyph in text.ToCharArray())
+                for (int i = 1; i < Args.getArguments().Count; i++)
                 {
-                    if(wordwrap && (canvas.getPosition().X + font.Width) >= canvas.Width)
+                    string text = Args.getArguments()[i];
+                    Environment.Log.Trace("Subpart: {0}", text);
+                    foreach (char glyph in text.ToCharArray())
                     {
-                        canvas.setPosition(posInit.X, canvas.getPosition().Y+font.Height);
-                    }
-                    string[] data = font.getGlyph(glyph);
-                    Environment.Log.Trace(@"glyph '{0}' => ({2})[""{1}""]", glyph, string.Join("\",\"", data), data.Length);
-                    for(int y = 0; y < font.Height; y++)
-                    {
-                        if (y < data.Length && 0 < data[y].Trim().Length)
+                        if (wordwrap && (canvas.getPosition().X + font.Width) >= canvas.Width)
                         {
-                            canvas.overrideAt(canvas.getPosition().X, canvas.getPosition().Y + y, data[y]);
+                            canvas.setPosition(posInit.X, canvas.getPosition().Y + font.Height);
                         }
+                        string[] data = font.getGlyph(glyph);
+                        Environment.Log.Trace(@"glyph '{0}' => ({2})[""{1}""]", glyph, string.Join("\",\"", data), data.Length);
+                        for (int y = 0; y < font.Height; y++)
+                        {
+                            if (y < data.Length && 0 < data[y].Trim().Length)
+                            {
+                                canvas.overrideAt(canvas.getPosition().X, canvas.getPosition().Y + y, data[y]);
+                            }
+                        }
+                        canvas.setPosition(canvas.getPosition().X + font.Width, canvas.getPosition().Y);
                     }
-                    canvas.setPosition(canvas.getPosition().X + font.Width, canvas.getPosition().Y);
                 }
-
                 return true;
             }
         }
