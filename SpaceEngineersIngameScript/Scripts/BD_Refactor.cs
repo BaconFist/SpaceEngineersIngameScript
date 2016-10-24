@@ -1285,6 +1285,7 @@ namespace BD_Refactor
                 Point posInit = canvas.getPosition();
                 bool wordwrap = (Args.getOption("word-wrap").Count > 0);
                 string text = string.Join(" ",Args.getArguments().GetRange(1, Args.getArguments().Count - 2).ToArray());
+                Environment.Log.Trace("Text \"{0}\"", text);
                 foreach(char glyph in text.ToCharArray())
                 {
                     if(wordwrap && (canvas.getPosition().X + font.Width) >= canvas.Width)
@@ -1292,6 +1293,7 @@ namespace BD_Refactor
                         canvas.setPosition(posInit.X, canvas.getPosition().Y+font.Height);
                     }
                     string[] data = font.getGlyph(glyph);
+                    Environment.Log.Trace(@"glyph '{0}' => ({2})[""{1}""]", glyph, string.Join("\",\"", data), data.Length);
                     for(int y = 0; y < font.Height; y++)
                     {
                         if (y < data.Length && 0 < data[y].Trim().Length)
