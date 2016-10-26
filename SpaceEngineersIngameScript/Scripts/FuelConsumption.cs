@@ -31,14 +31,35 @@ namespace FuelConsumption
 
         public Program()
         {
-            ItemAmountsLast = coutItems();
+            FirstTime = DateTime.Now;
             LastTime = DateTime.Now;
+            ItemTypes = new BMyDynamicDictionary<string, string>("undefined");
+            ItemTypes["MyObjectBuilder_AmmoMagazine"] = "ammo";
+            ItemTypes["MyObjectBuilder_Component"] = "component";
+            ItemTypes["MyObjectBuilder_GasContainerObject"] = "hbottle";
+            ItemTypes["MyObjectBuilder_OxygenContainerObject"] = "obottle";
+            ItemTypes["MyObjectBuilder_Ingot"] = "ingot";
+            ItemTypes["MyObjectBuilder_Ore"] = "ore";
+            ItemTypes["MyObjectBuilder_PhysicalGunObject"] = "handtool";
+
+            coutItems(out ItemAmountsFirst, out oxyLevelFirst, out HLevelFirst);
+            coutItems(out ItemAmountsLast, out oxyLevelLast, out HLevelLast);            
         }
+        BMyDynamicDictionary<string, string> ItemTypes;
 
+        float oxyLevelFirst;
+        float HLevelFirst;
+        DateTime FirstTime;
+        BMyDynamicDictionary<string, long> ItemAmountsFirst;
+
+        float oxyLevelLast;
+        float HLevelLast;
         DateTime LastTime;
-        DateTime CurrentTime;
-
         BMyDynamicDictionary<string, long> ItemAmountsLast;
+
+        float oxyLevelCurrent;
+        float HLevelCurrent;
+        DateTime CurrentTime;
         BMyDynamicDictionary<string, long> ItemAmountsCurrent;
 
         char[] progressIndicator = new char[] {'-', '\\', '|', '/'};
@@ -53,34 +74,14 @@ namespace FuelConsumption
 
         public void run(string argument)
         {
-            IMyTextPanel Panel = GridTerminalSystem.GetBlockWithName(argument) as IMyTextPanel;
-            if(Panel != null)
-            {
-                Echo("Panel found");
-                Panel.WritePrivateText("");
-                foreach(var Item in ItemAmountsCurrent)
-                {
-                    if (ItemAmountsLast.ContainsKey(Item.Key))
-                    {
-                        var Last = ItemAmountsLast[Item.Key];
-                        Panel.WritePrivateText(string.Format("{0}: {1} / {2}\n", Item.Key, Item.Value, Last), true);
-                    } else
-                    {
-                        Echo("no record for " + Item.Key);
-                    }
-                }
-            } else
-            {
-                Echo("Panel not found");
-            }
+
         }
 
         public void load()
         {
-            ItemAmountsCurrent = coutItems();
             CurrentTime = DateTime.Now;
+            coutItems(out ItemAmountsCurrent, out oxyLevelCurrent, out HLevelCurrent);
         }
-
         public void unload()
         {
             ItemAmountsLast.Clear();
@@ -95,12 +96,18 @@ namespace FuelConsumption
                 progressIndicatorCount = 0;
             }
         }
-
-        BMyDynamicDictionary<string, long> coutItems()
+        void coutItems(out BMyDynamicDictionary<string, long> itemAmounts, out float levelOxy, out float levelHydro)
         {
             List<IMyTerminalBlock> Blocks = new List<IMyTerminalBlock>();
             GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(Blocks, (b => b.HasInventory()));
-            BMyDynamicDictionary<string, long> itemAmounts = new BMyDynamicDictionary<string, long>(0);
+            itemAmounts = new BMyDynamicDictionary<string, long>(0);
+
+
+            float sumH = 0;
+            float sumO = 0;
+            float countH = 0;
+            float countO = 0;
+
             foreach (IMyTerminalBlock Block in Blocks)
             {
                 for (int i = 0; i < Block.GetInventoryCount(); i++)
@@ -108,14 +115,26 @@ namespace FuelConsumption
                     IMyInventory Inventory = Block.GetInventory(i);
                     foreach (IMyInventoryItem Item in Inventory.GetItems())
                     {
-                        itemAmounts[Item.Content.TypeId.ToString() + "/" + Item.Content.SubtypeName] += Item.Amount.RawValue;
+                        itemAmounts[ItemTypes[Item.Content.TypeId.ToString()] + "/" + Item.Content.SubtypeName] += Item.Amount.RawValue;
                     }
                 }
+                if(Block is IMyOxygenTank)
+                {
+                    if (Block.BlockDefinition.SubtypeName.Contains("Hydrogen"))
+                    {
+                        sumH += (Block as IMyOxygenTank).GetOxygenLevel();
+                        countH++;
+                    } else
+                    {
+                        sumO += (Block as IMyOxygenTank).GetOxygenLevel();
+                        countO++;
+                    }
+                }
+                
             }
-
-            return itemAmounts;
+            levelHydro = (countH > 0) ? (sumH / countH) : 0;
+            levelOxy = (countO > 0) ? (sumO / countO) : 0;
         }
-
         class BMyDynamicDictionary<TKey, TValue> : Dictionary<TKey, TValue>
         {
             private TValue _default;
