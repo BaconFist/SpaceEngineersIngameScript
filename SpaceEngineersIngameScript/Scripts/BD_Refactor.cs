@@ -53,7 +53,7 @@ namespace BD_Refactor
             {
                 Environment = bootstrap(BaconArgs.parse(argument));
                 run(Environment);
-                clean();
+                clean(Environment);
             }
             catch (Exception e)
             {
