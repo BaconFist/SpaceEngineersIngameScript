@@ -27,7 +27,12 @@ namespace BaconsWingmanDrone
         Description
         ===========
 
+         [BWDA]
+         [BWD:10:10:10]
+
         */
+
+
 
         List<IMyRemoteControl> RCs;
         BaconArgs Args;
@@ -41,51 +46,52 @@ namespace BaconsWingmanDrone
                 RCs = new List<IMyRemoteControl>();
             }
             Args = BaconArgs.parse(argument);
+            EchoF("START - Remotes: {0}", RCs.Count);
+
             if(Args.getOption("reset").Count > 0)
             {
+                Echo("RESET");
                 reset();
             }
             List<IMyShipController> ShipCon = new List<IMyShipController>();
-            GridTerminalSystem.GetBlocksOfType<IMyShipController>(ShipCon, (s => s.CustomName.Contains("[BWDANCHOR]")));
+            GridTerminalSystem.GetBlocksOfType<IMyShipController>(ShipCon, (s => s.CustomName.Contains("[BWDA]")));
             if (ShipCon.Count > 0)
             {
+                EchoF("Using {0} as Anchor", ShipCon[0].CustomName);
                 foreach (IMyRemoteControl Remote in RCs)
                 {
                     updateDrone(Remote, ShipCon[0]);
                 }
             }
+            Echo("END");
         }
 
         void reset()
         {
             RCs.Clear();
             GridTerminalSystem.GetBlocksOfType<IMyRemoteControl>(RCs, (r => TagRgx.IsMatch(r.CustomName)));
+            EchoF("Reset: Found {0} Remotes", RCs.Count);
         }
 
         void updateDrone(IMyRemoteControl Remote, IMyShipController Anchor)
         {
             System.Text.RegularExpressions.MatchCollection Matches = TagRgx.Matches(Remote.CustomName);
 
-            if (Matches.Count == 3)
-            {
-                if (Remote.CubeGrid.Equals(Me.CubeGrid))
-                {
-                    Echo(string.Format(@"Drone ""{0}"" on Master-Grid -> skip", Remote.CustomName));
-                    Remote.SetAutoPilotEnabled(false);
-                    return;
-                }
+            EchoF("Updating Drone {0}.", Remote.CustomName);
+            EchoF("Matches {0}", Matches);
 
-                int x;
-                int y;
-                int z;
-                if (int.TryParse(Matches[0].Value, out x) && int.TryParse(Matches[1].Value, out y) && int.TryParse(Matches[2].Value, out z))
-                {
-                    Vector3 newPos = getPosRel(Anchor, new Vector3I(x, y, z));
-                    Remote.ClearWaypoints();
-                    Remote.AddWaypoint(newPos, "Wingman Target");
-                    Remote.SetAutoPilotEnabled(true);
-                }                
-            }
+                int x = 20;
+                int y = 0;
+                int z = 20;
+                Vector3 newPos = getPosRel(Anchor, new Vector3I(x, y, z));
+                updateRemote(Remote, newPos);
+        }
+
+        void updateRemote(IMyRemoteControl Remote, Vector3D newPos)
+        {
+            Remote.ClearWaypoints();
+            Remote.AddWaypoint(newPos, "Wingman Target");
+            Remote.SetAutoPilotEnabled(true);
         }
 
         Vector3D getPosRel(IMyCubeBlock anchor, Vector3I offset)
@@ -104,7 +110,14 @@ namespace BaconsWingmanDrone
             int backDistance = offset.Z;
 
             //3) Calc target position
-            return basePosition + upVector * upDistance + backwardVector * backDistance + leftVector * leftDistance;
+            Vector3D newPos = basePosition + upVector * upDistance + backwardVector * backDistance + leftVector * leftDistance;
+            EchoF(@"base: {0}, up: {1}, left: {2}, back: {3}, LDist: {4}, UDist: {5}, BDist: {6}, NEW: {7}", basePosition, upVector, leftVector, backwardVector, leftDistance, upDistance, backDistance, newPos);
+            return newPos;
+        }
+
+        void EchoF(string format, params object[] values)
+        {
+            Echo(string.Format(format, values));
         }
 
         #region BaconArgs
