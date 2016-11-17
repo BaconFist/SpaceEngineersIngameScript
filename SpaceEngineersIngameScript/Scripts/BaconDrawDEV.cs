@@ -62,24 +62,30 @@ namespace BaconDrawDEV
                 {
                     Env.Log?.PushStack("reset");
                     ArgBag = BaconArgs.parse(TextPanel.GetPublicTitle());
-                    
+                    Env.Log?.Trace(@"parsed args: {0}", ArgBag.Raw);
+
                     this.Clear();
                     _hash = getCurrentHash();
                     foreach (string codeLine in TextPanel.GetPrivateText().Split(new Char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries))
                     {
                         this.Enqueue(codeLine);
                     }
+                    Env.Log?.If(BMyLog4PB.E_INFO)?.Info(@"Reset Panel ""{0}"" with {1} lines of code.", TextPanel.CustomName, this.Count);
                     Env.Log?.PopStack();
                 }
                 private long getCurrentHash()
                 {
-                    return string.Format(
+                    Env.Log?.PushStack("getCurrentHash");
+                    long buff = string.Format(
                         @"{0}{1}{2}",
                         TextPanel.GetPublicTitle(),
                         TextPanel.GetPrivateTitle(),
                         TextPanel.GetPrivateText(),
                         TextPanel.GetValueFloat("FontSize")
                     ).GetHashCode();
+                    Env.Log?.Debug(@"hash for ""{0}"" > {1}", TextPanel.CustomName, buff);
+                    Env.Log?.PopStack();
+                    return buff;
                 }
             }
             public class BMyEnvironment
@@ -110,13 +116,14 @@ namespace BaconDrawDEV
                     {
                         return null;
                     }
+                    string tag = ArgBag.hasOption(OPT_LOGTAG) ? ArgBag.getOption(OPT_LOGTAG)[0] : DEF_LOGTAG;
                     BMyLog4PB Logger = new BMyLog4PB(
                         Assembly,
                         filter,
                         new BMyLog4PB.BMyEchoAppender(Assembly),
                         new BMyLog4PB.BMyKryptDebugSrvAppender(Assembly),
                         new BMyLog4PB.BMyTextPanelAppender(
-                            ArgBag.hasOption(OPT_LOGTAG)?ArgBag.getOption(OPT_LOGTAG)[0]:DEF_LOGTAG,
+                            tag,
                             Assembly    
                         )    
                     );
@@ -124,8 +131,8 @@ namespace BaconDrawDEV
                     {
                         Logger.Format = ArgBag.getOption(OPT_FORMAT)[0];
                     }
-                    Logger.AutoFlush = false;                   
-
+                    Logger.AutoFlush = false;
+                    Logger.If(BMyLog4PB.E_DEBUG)?.Debug("Log initialized. Tag: {0}, Format: {1}", tag, Logger.Format);
                     return Logger;
                 }
 
