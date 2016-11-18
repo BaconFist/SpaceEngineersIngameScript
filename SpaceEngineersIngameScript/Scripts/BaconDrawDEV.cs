@@ -17,9 +17,11 @@ namespace BaconDrawDEV
     public class Program : MyGridProgram
     {
         #region Game Code - Copy/Paste Code from this region into Block Script Window in Game
+        BMyBaconDraw BaconDraw;
+
         public Program()
         {
-
+            BaconDraw = new BMyBaconDraw();
         }
         public void Main(string argument)
         {
@@ -27,7 +29,8 @@ namespace BaconDrawDEV
             try
             {
                 Env.Log?.PushStack("Main");
-                
+                BaconDraw.Env = Env;
+                Env.Log?.Debug("updated environment");
             }
             catch (Exception e)
             {
@@ -41,13 +44,14 @@ namespace BaconDrawDEV
 
         class BMyBaconDraw
         {
-            private BMyEnvironment Env;
+            public BMyEnvironment Env;
+            private Dictionary<long, BMyTextPanelState> PanelStates = new Dictionary<long, BMyTextPanelState>();
 
             private List<IMyTextPanel> findTextPanels()
             {
                 Env.Log?.PushStack("findTextPanels");
                 List<IMyTextPanel> Matches = new List<IMyTextPanel>();
-                foreach(string tag in Env.ArgBag.getArguments())
+                foreach (string tag in Env.ArgBag.getArguments())
                 {
                     Matches.AddRange(findTextPanelsByTag(tag));
                 }
@@ -60,7 +64,7 @@ namespace BaconDrawDEV
                 Env.Log?.PushStack("findTextPanelsByTag");
                 List<IMyTextPanel> Matches = new List<IMyTextPanel>();
                 Env.Assembly.GridTerminalSystem.GetBlocksOfType<IMyTextPanel>(
-                    Matches, 
+                    Matches,
                     (b => b.CubeGrid.Equals(Env.Assembly.Me.CubeGrid) && b.CustomName.Contains(tag))
                 );
                 Env.Log?.Info("found {0} TextPanels for {1}", Matches.Count, tag);
@@ -118,7 +122,7 @@ namespace BaconDrawDEV
                 public readonly Program Assembly;
                 public readonly BMyLog4PB Log;
                 public readonly BaconArgs ArgBag;
-                
+
                 public BMyEnvironment(Program Assembly, string arguments)
                 {
                     this.Assembly = Assembly;
@@ -132,7 +136,7 @@ namespace BaconDrawDEV
                 static public BMyLog4PB getLogger(BaconArgs ArgBag, Program Assembly)
                 {
                     byte filter = getVerbosityFilter(ArgBag);
-                    if(filter == 0)
+                    if (filter == 0)
                     {
                         return null;
                     }
@@ -144,8 +148,8 @@ namespace BaconDrawDEV
                         new BMyLog4PB.BMyKryptDebugSrvAppender(Assembly),
                         new BMyLog4PB.BMyTextPanelAppender(
                             tag,
-                            Assembly    
-                        )    
+                            Assembly
+                        )
                     );
                     if (ArgBag.hasOption(BMyArgParams.LOG_FORMAT))
                     {
@@ -159,7 +163,8 @@ namespace BaconDrawDEV
                 {
                     byte slug = 0;
                     int verbosity = ArgBag.getFlag(BMyArgParams.LOG_VERBOSITY);
-                    if (verbosity >= 1) {
+                    if (verbosity >= 1)
+                    {
                         slug |= BMyLog4PB.E_FATAL;
                     }
                     if (verbosity >= 2)
@@ -193,6 +198,51 @@ namespace BaconDrawDEV
                 public const string LOG_FORMAT = "logFormat";
                 public const string LOG_TAG = "logTag";
                 public const string LOG_TAG_DEFAULT = "[BaconDrawLog]";
+            }
+
+
+
+            class BMyBitmap
+            {
+                private char[,] _raster;
+                public readonly int Width;
+                public readonly int Height;
+
+                public BMyBitmap(int width, int height)
+                {
+                    _raster = new char[width, height];
+                    Width = _raster.GetUpperBound(0);
+                    Height = _raster.GetUpperBound(1);
+                }
+                public bool isInBounds(int x, int y)
+                {
+                    return (0 <= x && x < Width && 0 <= y && y < Height);
+                }
+                public bool TryGetPixel(int x, int y, out char pixel)
+                {
+                    if (isInBounds(x, y))
+                    {
+                        pixel = _raster[x, y];
+                        return true;
+                    }
+                    else
+                    {
+                        pixel = '\0';
+                        return false;
+                    }
+                }
+                public bool TrySetPixel(int x, int y, char pixel)
+                {
+                    if (isInBounds(x, y))
+                    {
+                        _raster[x, y] = pixel;
+                        return true;
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
             }
         }
 
