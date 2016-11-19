@@ -47,315 +47,8 @@ namespace BD_Refactor
 
         public void Main(string argument)
         {
-            Echo("- START -");
-            BMyEnvironment Environment = null;
-            try
-            {
-                Environment = bootstrap(BaconArgs.parse(argument));
-                run(Environment);
-                clean(Environment);
-            }
-            catch (Exception e)
-            {
-                string fatalError = string.Format("Message: {0}\nSender:{1}\nStackTrace{2}", e.Message, e.Source, e.StackTrace);
-                foreach(var data in e.Data)
-                {
-                    fatalError += "\n"+data.ToString();
-                }
-                Environment?.Log?.Fatal(fatalError);
-                Echo(fatalError);
-            }
-            Echo("- END -");
-        }
-   
-        void run(BMyEnvironment Environment)
-        {
-            Environment.Log?.newScope("run");
-            List<IMyTextPanel> Panels = getPanels(Environment);
-            foreach(IMyTextPanel Panel in Panels)
-            {
-                if (!canContinueParsing())
-                {
-                    Environment.Log?.Trace("Instruction Limit reached - execution delayed");
-                    break;
-                }
-                if (!Tasks.ContainsKey(Panel))
-                {
-                    Tasks.Add(Panel, new BMyPanelTask(Environment, Panel));
-                }
-                BMyPanelTask Task = Tasks[Panel];
-                for (; Task.codeIndex < Task.Count && canContinueParsing(); Task.codeIndex++)
-                {
-                    if (Task.isEndOfCode())
-                    {
-                        Environment.Log?.Trace("End of Code on {0}", Panel.CustomName);
-                        break;
-                    }
-                    BaconArgs args = BaconArgs.parse(Task[Task.codeIndex]);
-                    if(args.getArguments().Count < 1)
-                    {
-                        Environment.Log?.Trace("no command on \"{0}\" at line {1} => {2}", Panel.CustomName, Task.codeIndex, Task[Task.codeIndex]);
-                        continue;
-                    }
-                    string subType = args.getArguments()[0];
-                    args.getArguments().RemoveAt(0);
-                    if(Environment.DrawPlugins.TryRun(subType, args, Task.Canvas))
-                    {
-                        Environment.Log?.Trace("succeed on \"{0}\" at line {1} => {2}", Panel.CustomName, Task.codeIndex, Task[Task.codeIndex]);
-                    }
-                    else
-                    {
-                        Environment.Log?.Trace("failed on \"{0}\" at line {1} => {2}", Panel.CustomName, Task.codeIndex, Task[Task.codeIndex]);
-                    }
-                }
-            }
-            Environment.Log?.leaveScope();
-        }
-
-        private List<IMyTextPanel> getPanels(BMyEnvironment Environment)
-        {
-            string[] tags = (Environment.GlobalArgs.getArguments().Count > 0) ? Environment.GlobalArgs.getArguments().ToArray() : new string[] { TAG };
-            List<IMyTextPanel> Panels = new List<IMyTextPanel>();
-            foreach(string tag in tags)
-            {
-                List<IMyTextPanel> buffer = new List<IMyTextPanel>();
-                GridTerminalSystem.GetBlocksOfType<IMyTextPanel>(buffer, 
-                    (p =>
-                        p.CustomName.Contains(tag)
-                        && (p.CustomName.Contains(IGNORE_GRID_TAG) ||p.CubeGrid.Equals(Me.CubeGrid))
-                    )
-                );
-                Panels.AddRange(buffer);
-            }
-            return Panels;
-        }
-
-        private void clean(BMyEnvironment Environment)
-        {
-            Environment.Log?.newScope("clean");
-            List<IMyTextPanel> markedForGC = new List<IMyTextPanel>();
-            foreach(var Item in Tasks)
-            {
-                if (!canContinueCleaning())
-                {
-                    Environment.Log?.Trace("instruction limit reached - delay progress to next execution");
-                    break;
-                }
-                BMyPanelTask Task = Item.Value;
-                if (Task.isEndOfCode())
-                {
-                    PanelStates[Task.Panel] = Task.Save();
-                    markedForGC.Add(Item.Key);
-                }
-            }
-
-            foreach(var P in markedForGC)
-            {
-                if (Tasks.ContainsKey(P))
-                {
-                    Tasks.Remove(P);
-                }
-            }
-
-            Environment.Log?.leaveScope();
-        }
-
-        public bool canContinueParsing()
-        {
-            return Runtime.CurrentInstructionCount < IC_LIMIT_PARSER;
-        }
-
-        public bool canContinueCleaning()
-        {
-            return Runtime.CurrentInstructionCount < IC_LIMIT_CLEANING;
-        }
-
-        #region bootstrap
-        BMyEnvironment bootstrap(BaconArgs Args)
-        {
-            BaconDebug Debugger = getDebugger(Args);
-            Debugger?.newScope("bootstrap");
-            BMyEnvironment Env = new BMyEnvironment(this, Args, Debugger, FontsGlobal);
-            addDefaultFont(Env);
-            #region enable plugins
-            foreach(string pluginame in Args.getOption("plugin"))
-            {
-                Env.DrawPlugins.TryEnable(pluginame);
-            }
-            // default plugins
-            Env.DrawPlugins.TryEnable("BaconDraw");
-            #endregion enbale plugins
-            Env.Log?.Trace("Envionment Initialized");
-            Env.Log?.leaveScope();
-            return Env;
-        }
-
-        void addDefaultFont(BMyEnvironment E)
-        {
-            BMyFont font = new BMyFont("-", "", 5, 5, E);
-            font.Add('\u0021', new string[] { "  1  ", "  1  ", "  1  ", "     ", "  1  " }); //'!'
-            font.Add('\u0022', new string[] { " 1 1 ", " 1 1 ", "     ", "     ", "     " }); //'"'
-            font.Add('\u0023', new string[] { " 1 1 ", "11111", " 1 1 ", "11111", " 1 1 " }); //'#'
-            font.Add('\u0024', new string[] { " 1111", "1 1  ", " 111 ", "  1 1", "1111 " }); //'$'
-            font.Add('\u0025', new string[] { "11  1", "11 1 ", "  1  ", " 1 11", "1  11" }); //'%'
-            font.Add('\u0027', new string[] { "  1  ", "  1  ", "     ", "     ", "     " }); //'''
-            font.Add('\u0028', new string[] { "   1 ", "  1  ", "     ", "  1  ", "   1 " }); //'('
-            font.Add('\u0029', new string[] { " 1   ", "  1  ", "  1  ", "  1  ", " 1   " }); //')'
-            font.Add('\u002A', new string[] { " 1 1 ", "  1  ", " 1 1 ", "     ", "     " }); //'*'
-            font.Add('\u002C', new string[] { "     ", "     ", "     ", "  1  ", " 1   " }); //','
-            font.Add('\u002D', new string[] { "     ", "     ", " 111 ", "     ", "     " }); //'-'
-            font.Add('\u002E', new string[] { "     ", "     ", "     ", "     ", "  1  " }); //'.'
-            font.Add('\u002F', new string[] { "    1", "   1 ", "  1  ", " 1   ", "1    " }); //'/'
-            font.Add('\u0030', new string[] { " 111 ", "1  11", "1 1 1", "11  1", " 111 " }); //'0'
-            font.Add('\u0031', new string[] { "  11 ", "   1 ", "   1 ", "   1 ", "  111" }); //'1'
-            font.Add('\u0032', new string[] { "1111 ", "    1", " 111 ", "1    ", "11111" }); //'2'
-            font.Add('\u0033', new string[] { "1111 ", "    1", "  11 ", "    1", "1111 " }); //'3'
-            font.Add('\u0034', new string[] { "  11 ", " 1 1 ", "1  1 ", "11111", "   1 " }); //'4'
-            font.Add('\u0035', new string[] { "111 1", "1    ", "111  ", "   11", "1111 " }); //'5'
-            font.Add('\u0036', new string[] { " 1111", "1   1", "1111 ", "1    ", " 111 " }); //'6'
-            font.Add('\u0037', new string[] { "11111", "    1", "   1 ", "  1  ", " 1   " }); //'7'
-            font.Add('\u0038', new string[] { " 111 ", "1   1", " 111 ", "1   1", " 111 " }); //'8'
-            font.Add('\u0039', new string[] { " 111 ", "1   1", " 1111", "    1", "1111 " }); //'9'
-            font.Add('\u003A', new string[] { "     ", "  1  ", "     ", "  1  ", "     " }); //':'
-            font.Add('\u003B', new string[] { "     ", "  1  ", "     ", "  1  ", " 1   " }); //';'
-            font.Add('\u003C', new string[] { "    1", "   1 ", "  1  ", "   1 ", "    1" }); //'<'
-            font.Add('\u003D', new string[] { "     ", " 111 ", "     ", " 111 ", "     " }); //'='
-            font.Add('\u003E', new string[] { "1    ", " 1   ", "  1  ", " 1   ", "1    " }); //'>'
-            font.Add('\u003F', new string[] { " 111 ", "    1", "  11 ", "     ", "  1  " }); //'?'
-            font.Add('\u0040', new string[] { " 1111", "1   1", "1 111", "1 11 ", " 1111" }); //'@'
-            font.Add('\u0041', new string[] { "  1  ", " 1 1 ", "1   1", "11111", "1   1" }); //'A'
-            font.Add('\u0061', new string[] { "  1  ", " 1 1 ", "1   1", "11111", "1   1" }); //'a'
-            font.Add('\u0042', new string[] { "1111 ", "1   1", "1111 ", "1   1", "1111 " }); //'B'
-            font.Add('\u0062', new string[] { "1111 ", "1   1", "1111 ", "1   1", "1111 " }); //'b'
-            font.Add('\u0043', new string[] { " 1111", "1    ", "1    ", "1    ", " 1111" }); //'C'
-            font.Add('\u0063', new string[] { " 1111", "1    ", "1    ", "1    ", " 1111" }); //'c'
-            font.Add('\u0044', new string[] { "1111 ", "1   1", "1    ", "1   1", "1111 " }); //'D'
-            font.Add('\u0064', new string[] { "1111 ", "1   1", "1    ", "1   1", "1111 " }); //'d'
-            font.Add('\u0045', new string[] { "11111", "1    ", "111  ", "1    ", "11111" }); //'E'
-            font.Add('\u0065', new string[] { "11111", "1    ", "111  ", "1    ", "11111" }); //'e'
-            font.Add('\u0046', new string[] { "11111", "1    ", "111  ", "1    ", "1    " }); //'F'
-            font.Add('\u0066', new string[] { "11111", "1    ", "111  ", "1    ", "1    " }); //'f'
-            font.Add('\u0047', new string[] { " 1111", "1    ", "1  11", "1   1", " 1111" }); //'G'
-            font.Add('\u0067', new string[] { " 1111", "1    ", "1  11", "1   1", " 1111" }); //'g'
-            font.Add('\u0048', new string[] { "1   1", "1   1", "11111", "1   1", "1   1" }); //'H'
-            font.Add('\u0068', new string[] { "1   1", "1   1", "11111", "1   1", "1   1" }); //'h'
-            font.Add('\u0049', new string[] { "11111", "  1  ", "  1  ", "  1  ", "11111" }); //'I'
-            font.Add('\u0069', new string[] { "11111", "  1  ", "  1  ", "  1  ", "11111" }); //'i'
-            font.Add('\u004A', new string[] { "11111", "   1 ", "   1 ", "1  1 ", " 11  " }); //'J'
-            font.Add('\u006A', new string[] { "11111", "   1 ", "   1 ", "1  1 ", " 11  " }); //'j'
-            font.Add('\u004B', new string[] { "1   1", "1  1 ", "111  ", "1  1 ", "1   1" }); //'K'
-            font.Add('\u006B', new string[] { "1   1", "1  1 ", "111  ", "1  1 ", "1   1" }); //'k'
-            font.Add('\u004C', new string[] { "1    ", "1    ", "1    ", "1    ", "11111" }); //'L'
-            font.Add('\u006C', new string[] { "1    ", "1    ", "1    ", "1    ", "11111" }); //'l'
-            font.Add('\u004D', new string[] { "1   1", "11 11", "1 1 1", "1   1", "1   1" }); //'M'
-            font.Add('\u006D', new string[] { "1   1", "11 11", "1 1 1", "1   1", "1   1" }); //'m'
-            font.Add('\u004E', new string[] { "1   1", "11  1", "1 1 1", "1  11", "1   1" }); //'N'
-            font.Add('\u006E', new string[] { "1   1", "11  1", "1 1 1", "1  11", "1   1" }); //'n'
-            font.Add('\u004F', new string[] { " 111 ", "1   1", "1   1", "1   1", " 111 " }); //'O'
-            font.Add('\u006F', new string[] { " 111 ", "1   1", "1   1", "1   1", " 111 " }); //'o'
-            font.Add('\u0050', new string[] { "1111 ", "1   1", "1111 ", "1    ", "1    " }); //'P'
-            font.Add('\u0070', new string[] { "1111 ", "1   1", "1111 ", "1    ", "1    " }); //'p'
-            font.Add('\u0051', new string[] { " 111 ", "1   1", "1 1 1", "1  1 ", " 11 1" }); //'Q'
-            font.Add('\u0071', new string[] { " 111 ", "1   1", "1 1 1", "1  1 ", " 11 1" }); //'q'
-            font.Add('\u0052', new string[] { "1111 ", "1   1", "1111 ", "1   1", "1   1" }); //'R'
-            font.Add('\u0072', new string[] { "1111 ", "1   1", "1111 ", "1   1", "1   1" }); //'r'
-            font.Add('\u0053', new string[] { " 1111", "1    ", " 111 ", "    1", "1111 " }); //'S'
-            font.Add('\u0073', new string[] { " 1111", "1    ", " 111 ", "    1", "1111 " }); //'s'
-            font.Add('\u0054', new string[] { "11111", "  1  ", "  1  ", "  1  ", "  1  " }); //'T'
-            font.Add('\u0074', new string[] { "11111", "  1  ", "  1  ", "  1  ", "  1  " }); //'t'
-            font.Add('\u0055', new string[] { "1   1", "1   1", "1   1", "1   1", " 111 " }); //'U'
-            font.Add('\u0075', new string[] { "1   1", "1   1", "1   1", "1   1", " 111 " }); //'u'
-            font.Add('\u0056', new string[] { "1   1", "1   1", "1   1", " 1 1 ", "  1  " }); //'V'
-            font.Add('\u0076', new string[] { "1   1", "1   1", "1   1", " 1 1 ", "  1  " }); //'v'
-            font.Add('\u0057', new string[] { "1   1", "1   1", "1 1 1", "11 11", "1   1" }); //'W'
-            font.Add('\u0077', new string[] { "1   1", "1   1", "1 1 1", "11 11", "1   1" }); //'w'
-            font.Add('\u0058', new string[] { "1   1", " 1 1 ", "  1  ", " 1 1 ", "1   1" }); //'X'
-            font.Add('\u0078', new string[] { "1   1", " 1 1 ", "  1  ", " 1 1 ", "1   1" }); //'x'
-            font.Add('\u0059', new string[] { "1   1", " 1 1 ", "  1  ", "  1  ", "  1  " }); //'Y'
-            font.Add('\u0079', new string[] { "1   1", " 1 1 ", "  1  ", "  1  ", "  1  " }); //'y'
-            font.Add('\u005A', new string[] { "11111", "   1 ", "  1  ", " 1   ", "11111" }); //'Z'
-            font.Add('\u007A', new string[] { "11111", "   1 ", "  1  ", " 1   ", "11111" }); //'z'
-            font.Add('\u005B', new string[] { "  11 ", "  1  ", "  1  ", "  1  ", "  11 " }); //'['
-            font.Add('\u005C', new string[] { "1    ", " 1   ", "  1  ", "   1 ", "    1" }); //'\'
-            font.Add('\u005D', new string[] { " 11  ", "  1  ", "  1  ", "  1  ", " 11  " }); //']'
-            font.Add('\u005E', new string[] { "  1  ", " 1 1 ", "     ", "     ", "     " }); //'^'
-            font.Add('\u005F', new string[] { "     ", "     ", "     ", "     ", "11111" }); //'_'
-            font.Add('\u0060', new string[] { "  1  ", "   1 ", "     ", "     ", "     " }); //'`'
-            font.Add('\u007B', new string[] { "  11 ", "  1  ", " 1   ", "  1  ", "  11 " }); //'{'
-            font.Add('\u007C', new string[] { "  1  ", "  1  ", "  1  ", "  1  ", "  1  " }); //'|'
-            font.Add('\u007D', new string[] { " 11  ", "  1  ", "   1 ", "  1  ", " 11  " }); //'}'
-            font.Add('\u007E', new string[] { "     ", " 1   ", "1 1 1", "   1 ", "     " }); //'~'
-            font.Add('\u0020', new string[] { "     ", "     ", "     ", "     ", "     " }); //' '
-            
-            E.Fonts.Add(font.Name, font);
-            E.Fonts.Add("default", new BMyFont("default", "-", 5, 5, E));
-        }
-
-        BaconDebug getDebugger(BaconArgs Args)
-        {
-            int verbosity = Math.Min(Args.getFlag('v'), BaconDebug.INFO);
-            if(verbosity == BaconDebug.OFF)
-            {
-                Echo("Log/Debugger diabled");
-                return null;
-            }
-            if (Args.getFlag('v') >= BaconDebug.TRACE)
-            {
-                if(Args.getOption("debug").Count > 0)
-                {
-                    verbosity = BaconDebug.TRACE;
-                }
-            } else if (Args.getFlag('v') >= BaconDebug.DEBUG)
-            {
-                if (Args.getOption("debug").Count > 0)
-                {
-                    verbosity = BaconDebug.DEBUG;
-                }
-            }
-            Echo(string.Format("Log Verbosity: {0}; -v Flag = {1}; --debug: {2}", verbosity, Args.getFlag('v'), (Args.getOption("debug").Count>0)));
-            string tag = (Args.getOption("logScreen").Count > 0) ? Args.getOption("logScreen")[0] : "[BaconDraw_DEBUG]";
-            BaconDebug Debugger = new BaconDebug(tag, GridTerminalSystem, this, verbosity, "BaconDraw");
-            if (Args.getOption("logFormat").Count > 0) {
-                Debugger.Format = Args.getOption("logFormat")[0];
-            }
-            Debugger.autoscroll = false;
-            Debugger.clearPanels();
-            return Debugger;
 
         }
-        #endregion bootstrap
-
-        #region PANEL TASK
-        class BMyPanelTask : List<string>
-        {
-            public readonly BMyEnvironment Environment;
-            public readonly IMyTextPanel Panel;
-            public int codeIndex = 0;
-            public readonly BMyCanvas Canvas;
-            
-            public BMyPanelTask(BMyEnvironment Environment, IMyTextPanel Panel)
-            {
-                Environment.Log?.newScope("BMyPanelTask.BMyPanelTask");
-                this.Environment = Environment;
-                this.Panel = Panel;
-                this.Clear();
-                this.AddRange(Panel.GetPrivateText().Split(new char[] {'\n','\r'}, StringSplitOptions.RemoveEmptyEntries));
-                this.Canvas = Environment.CanvasFactory.FromPanel(Panel);
-                Environment.Log?.leaveScope();
-            }
-
-            public long Save()
-            {
-                Panel.WritePublicText(Canvas.ToString());
-                return string.Format("{0}|{1}", Panel.GetValueFloat("FontSize"), Panel.GetPrivateText()).GetHashCode();
-            }
-
-            public bool isEndOfCode()
-            {
-                return codeIndex >= Count;
-            }
-        }
-        #endregion PANEL TASK
 
         #region FACTORY
         class BMyCanvasFactory
@@ -380,10 +73,10 @@ namespace BD_Refactor
 
             public BMyCanvas FromPanel(IMyTextPanel Panel)
             {
-                Environment.Log?.newScope("BMyCanvasFactory.FromPanel");
+                Environment.Log?.PushStack("BMyCanvasFactory.FromPanel");
                 Point dimensions = getDimensionFromPanel(Panel);
                 BMyCanvas C = new BMyCanvas(dimensions.X, dimensions.Y, Environment);
-                Environment.Log?.leaveScope();
+                Environment.Log?.PopStack();
                 return C;
             }
 
@@ -403,19 +96,33 @@ namespace BD_Refactor
         #endregion FACTORY
 
         #region ENVIRONMENT
+        public class _BMyEnvironment
+        {
+            public readonly Program Assembly;
+            public readonly BMyLog4PB Log;
+            public readonly BaconArgs ArgBag;
+
+            public _BMyEnvironment(Program Assembly, string arguments)
+            {
+                this.Assembly = Assembly;
+                ArgBag = BaconArgs.parse(arguments);
+                //Log = BMyLoggerFactory.getLogger(ArgBag, Assembly);
+            }
+        }
+
         class BMyEnvironment
         {
             public readonly BMyDrawPluginHandler DrawPlugins;
             public readonly Program Global;
             public readonly BaconArgs GlobalArgs;
-            public readonly BaconDebug Log;
+            public readonly BMyLog4PB Log;
             public readonly Dictionary<string, BMyFont> Fonts;
             public readonly BMyColor Color;
             public readonly BMyCanvasFactory CanvasFactory;
 
-            public BMyEnvironment(Program Global, BaconArgs GlobalArgs, BaconDebug Log, Dictionary<string, BMyFont> Fonts)
+            public BMyEnvironment(Program Global, BaconArgs GlobalArgs, BMyLog4PB Log, Dictionary<string, BMyFont> Fonts)
             {
-                Log?.newScope("BMyEnvironment.BMyEnvironment");
+                Log?.PushStack("BMyEnvironment.BMyEnvironment");
                 this.Global = Global;
                 this.GlobalArgs = GlobalArgs;
                 this.Log = Log;
@@ -423,35 +130,35 @@ namespace BD_Refactor
                 this.Fonts = Fonts;
                 this.Color = new BMyColor(this);
                 this.CanvasFactory = new BMyCanvasFactory(this);
-                Log?.leaveScope();
+                Log?.PopStack();
             }
 
             public bool TryFindFontByName(string name, out BMyFont font)
             {
-                Log?.newScope("BMyEnvironment.TryFindFontByName");
+                Log?.PushStack("BMyEnvironment.TryFindFontByName");
                 if (Fonts.ContainsKey(name))
                 {
                     font = Fonts[name];
                     Log?.Trace("Matching font \"{0}\" {1}x{2}", font.Name, font.Width, font.Height);
-                    Log?.leaveScope();
+                    Log?.PopStack();
                     return true;
                 }
                 font = null;
                 Log?.Trace("font \"{0}\" not found", name);
-                Log?.leaveScope();
+                Log?.PopStack();
                 return false;
             }
 
             public bool TryAddFont(BMyFont font)
             {
-                Log?.newScope("BMyEnvironment.TryAddFont");
+                Log?.PushStack("BMyEnvironment.TryAddFont");
                 if (Fonts.ContainsKey(font.Name))
                 {
                     Log?.Trace("there is already a font named \"{0}\"", font.Name);
                 }
                 Fonts.Add(font.Name, font);
                 Log?.Trace("add font \"{0}\"", font.Name);
-                Log?.leaveScope();
+                Log?.PopStack();
                 return true;
             }
             
@@ -478,21 +185,21 @@ namespace BD_Refactor
 
             public string[] getGlyph(char glyph)
             {
-                Environment.Log?.newScope("BMyFont.getGlyph");
+                Environment.Log?.PushStack("BMyFont.getGlyph");
                 if (ContainsKey(glyph))
                 {
                     Environment.Log?.Trace("found char '{0}' in \"{1}\"", glyph, Name);
-                    Environment.Log?.leaveScope();
+                    Environment.Log?.PopStack();
                     return this[glyph];
                 }
                 if (Environment.Fonts.ContainsKey(Extends))
                 {
                     Environment.Log?.Trace("look up in parent font \"{0}\"", Extends);
-                    Environment.Log?.leaveScope();
+                    Environment.Log?.PopStack();
                     return Environment.Fonts[Extends].getGlyph(glyph);
                 }
                 Environment.Log?.Trace("char '{0}' not found in \"{1}\" or one of it's parents", glyph, Name);
-                Environment.Log?.leaveScope();
+                Environment.Log?.PopStack();
                 return new string[] {};
             }
         }
@@ -511,7 +218,7 @@ namespace BD_Refactor
 
             public BMyCanvas(int width, int height, BMyEnvironment Environment, string content) : this(width, height, Environment)
             {
-                Environment.Log?.newScope("BMyCanvas.Canvas");
+                Environment.Log?.PushStack("BMyCanvas.Canvas");
                 if(Environment.GlobalArgs.getOption("rawOutput").Count == 0)
                 {
                     content = Environment.Color.Decode(this, content);
@@ -522,22 +229,22 @@ namespace BD_Refactor
                     pixels[i] = (data[i] + (new string('0', width))).Substring(0,width).ToCharArray();
                 }
                 Environment.Log?.Trace("Filled canvas with exisiting content (lines:{0}; overall length:{1})", data.Length, content.Length);
-                Environment.Log?.leaveScope();
+                Environment.Log?.PopStack();
             }
 
             public BMyCanvas(int width, int height, BMyEnvironment Environment)
             {
-                Environment.Log?.newScope("BMyCanvas.Canvas");
+                Environment.Log?.PushStack("BMyCanvas.Canvas");
                 this.Environment = Environment;
                 setPosition(0, 0);
                 Clear(width,height);
                 Environment.Log?.Trace("Created new Canvas with dimensions(BxH) {0}x{1}", width, height);
-                Environment.Log?.leaveScope();
+                Environment.Log?.PopStack();
             }
 
             public bool TryParseCoords(string value, out Point coords)
             {
-                Environment.Log?.newScope("BMyCanvas.TryParseCoords");
+                Environment.Log?.PushStack("BMyCanvas.TryParseCoords");
                 string[] raw = value.Split(new char[] {','}, StringSplitOptions.RemoveEmptyEntries);
                 int x = 0;
                 int y = 0;
@@ -545,19 +252,19 @@ namespace BD_Refactor
                 {
                     coords = new Point(x,y);
                     Environment.Log?.Trace("Coordinates parsed from \"{0}\" => resulting in {1},{2}", value, coords.X, coords.Y);
-                    Environment.Log?.leaveScope();
+                    Environment.Log?.PopStack();
                     return true;
                 }
                 coords = new Point(0,0);
 
                 Environment.Log?.Trace("Can't parse coordinates from \"{0}\" => resulting in {1},{2}", value, coords.X, coords.Y);
-                Environment.Log?.leaveScope();
+                Environment.Log?.PopStack();
                 return false;
             }
 
             void Clear(int width, int height)
             {
-                Environment.Log?.newScope("BMyCanvas.Clear");
+                Environment.Log?.PushStack("BMyCanvas.Clear");
                 width = Math.Max(width, 1);
                 height = Math.Max(height, 1);
                 pixels = new char[height][];
@@ -565,12 +272,12 @@ namespace BD_Refactor
                 {
                     pixels[y] = (new String('0', width)).ToCharArray();
                 }
-                Environment.Log?.leaveScope();
+                Environment.Log?.PopStack();
             }
             
             public void overrideAt(int x, int y, string data)
             {
-                Environment.Log?.newScope("BMyCanvas.overrideAt");
+                Environment.Log?.PushStack("BMyCanvas.overrideAt");
                 if (inArea(x, y))
                 {
                     string bufferY = new string(pixels[y]);
@@ -597,7 +304,7 @@ namespace BD_Refactor
                 {
                     Environment.Log?.Trace("Point({0},{1}) out of range(X:`[0,{2}[` Y:`[0,{3}[`) => can't insert data", x, y, pixels[0].Length, pixels.Length);
                 }
-                Environment.Log?.leaveScope();
+                Environment.Log?.PopStack();
             }
 
             private bool inArea(int x, int y)
@@ -607,7 +314,7 @@ namespace BD_Refactor
 
             public void setPixel(int x, int y)
             {
-                Environment.Log?.newScope("BMyCanvas.setPixel");
+                Environment.Log?.PushStack("BMyCanvas.setPixel");
                 if (inArea(x,y))
                 {
                     pixels[y][x] = color;
@@ -616,7 +323,7 @@ namespace BD_Refactor
                 {
                     Environment.Log?.Trace("Point({1},{2}) out of range(X:`[0,{3}[` Y:`[0,{4}[`) => can't assign color '{0}'", color, x, y, pixels[0].Length, pixels.Length);
                 }
-                Environment.Log?.leaveScope();
+                Environment.Log?.PopStack();
             }
 
             public Point getPosition()
@@ -626,15 +333,15 @@ namespace BD_Refactor
 
             public void setPosition(int x, int y)
             {
-                Environment.Log?.newScope("BMyCanvas.setPosition");
+                Environment.Log?.PushStack("BMyCanvas.setPosition");
                 Environment.Log?.Trace("update position to {0},{1}", x, y);
                 Position = new Point(x,y);
-                Environment.Log?.leaveScope();
+                Environment.Log?.PopStack();
             }
 
             public string ToStringRaw()
             {
-                Environment.Log?.newScope("BMyCanvas.ToStringRaw");
+                Environment.Log?.PushStack("BMyCanvas.ToStringRaw");
                 List<string> slug = new List<string>();
                 foreach (char[] line in pixels)
                 {
@@ -642,23 +349,23 @@ namespace BD_Refactor
                     slug.Add(buffer);
                 }
                 Environment.Log?.Trace("created raw image with {0} line(s)", slug.Count);
-                Environment.Log?.leaveScope();
+                Environment.Log?.PopStack();
                 return string.Join("\n", slug.ToArray());
             }
 
             public override string ToString()
             {
-                Environment.Log?.newScope("BMyCanvas.ToString");
+                Environment.Log?.PushStack("BMyCanvas.ToString");
                 if(Environment.GlobalArgs.getOption("rawOutput").Count > 0)
                 {
                     string buffer = ToStringRaw();
-                    Environment.Log?.leaveScope();
+                    Environment.Log?.PopStack();
                     return buffer;
                 } else
                 {
                     string buffer = Environment.Color.Encode(this);
                     Environment.Log?.Trace("created encoded image");
-                    Environment.Log?.leaveScope();
+                    Environment.Log?.PopStack();
                     return buffer;
                 }                
             }
@@ -693,32 +400,32 @@ namespace BD_Refactor
 
             public string Encode(BMyCanvas canvas)
             {
-                Environment.Log?.newScope("BMyColor.Encode");
+                Environment.Log?.PushStack("BMyColor.Encode");
                 StringBuilder image = new StringBuilder(RgxEncode.Replace(canvas.ToStringRaw().ToLowerInvariant(), PLACEHOLDER_BG.ToString()));
                 image = image.Replace(PLACEHOLDER_BG, canvas.background);
                 foreach (KeyValuePair<char, char> color in map)
                 {
                     image = image.Replace(color.Key, color.Value);
                 }
-                Environment.Log?.leaveScope();
+                Environment.Log?.PopStack();
                 return image.ToString();
             }
 
             public string Decode(BMyCanvas canvas, string data)
             {
-                Environment.Log?.newScope("BMyColor.Decode");
+                Environment.Log?.PushStack("BMyColor.Decode");
                 StringBuilder image = new StringBuilder(RgxDecode.Replace(canvas.ToStringRaw().ToLowerInvariant(), PLACEHOLDER_BG.ToString()));
                 foreach (KeyValuePair<char, char> color in map)
                 {
                     image = image.Replace(color.Value, color.Key);
                 }
-                Environment.Log?.leaveScope();
+                Environment.Log?.PopStack();
                 return image.ToString();
             }
 
             public char getColorCode(string args)
             {
-                Environment.Log?.newScope("BMyColor.getColorCode");
+                Environment.Log?.PushStack("BMyColor.getColorCode");
                 string raw = args.Trim();
                 char value = '1';
                 if ((new System.Text.RegularExpressions.Regex(@"^(\\u[0-9a-f]{4})|(U\+[0-9a-f]{4})$").IsMatch(raw)))
@@ -739,7 +446,7 @@ namespace BD_Refactor
                 {
                     Environment.Log?.Trace("No matching Color => using default: {0} => '{1}'", raw, value);
                 }
-                Environment.Log?.leaveScope();
+                Environment.Log?.PopStack();
                 return value;
             }
         }
@@ -759,7 +466,7 @@ namespace BD_Refactor
 
             protected void AddAvailable(params T[] Plugins)
             {
-                Environment.Log?.newScope("BMyPluginHandler.AddAvailable");
+                Environment.Log?.PushStack("BMyPluginHandler.AddAvailable");
                 Environment.Log?.Trace("Try to register {0} Plugin(s)", Plugins.Length);
 
                 foreach (T Plugin in Plugins)
@@ -779,23 +486,23 @@ namespace BD_Refactor
                         Environment.Log?.Trace("Cant add plugin \"{0}/{1}\". Plugin already exists.", Plugin.Type, Plugin.SubType);
                     }
                 }
-                Environment.Log?.leaveScope();
+                Environment.Log?.PopStack();
             }
             public bool FindBySubtype(string SubType, out List<T> Matches)
             {
-                Environment.Log?.newScope("BMyPluginHandler.findBySubtype");
+                Environment.Log?.PushStack("BMyPluginHandler.findBySubtype");
 
                 string subTypeLow = SubType.ToLowerInvariant();
                 Matches = new List<T>();
                 if (!ContainsKey(subTypeLow))
                 {
                     Environment.Log?.Trace("found no plugins for {1}", Matches.Count, SubType);
-                    Environment.Log?.leaveScope();
+                    Environment.Log?.PopStack();
                     return false;
                 }
                 Matches = this[subTypeLow];
                 Environment.Log?.Trace("found {0} plugins for {1}", Matches.Count, SubType);
-                Environment.Log?.leaveScope();
+                Environment.Log?.PopStack();
                 return true;
             }
             public bool isEnabled(string SubType)
@@ -804,12 +511,12 @@ namespace BD_Refactor
             }
             public bool TryEnable(string Type)
             {
-                Environment.Log?.newScope("BMyPluginHandler.TryEnable");
+                Environment.Log?.PushStack("BMyPluginHandler.TryEnable");
 
                 if (!AvailablePlugins.ContainsKey(Type))
                 {
                     Environment.Log?.Trace("no plugins available for \"{0}\"", Type);
-                    Environment.Log?.leaveScope();
+                    Environment.Log?.PopStack();
                     return false;
                 }
 
@@ -826,25 +533,25 @@ namespace BD_Refactor
                     }
                 }
 
-                Environment.Log?.leaveScope();
+                Environment.Log?.PopStack();
                 return true;
             }
             public bool TryRun(string SubType, BaconArgs Args, params object[] parameters)
             {
-                Environment.Log?.newScope("BMyPluginHandler.TryRun");
+                Environment.Log?.PushStack("BMyPluginHandler.TryRun");
                 Environment.Log?.Trace(@"subtype ""{0}"" with {1}", SubType, Args.ToString());
                 List<T> Plugins;
                 if (!FindBySubtype(SubType, out Plugins))
                 {
-                    Environment.Log?.leaveScope();
+                    Environment.Log?.PopStack();
                     return false;
                 }
                 bool success = false;
                 for(int i = 0;!success && i < Plugins.Count; i++)
                 {
-                    Environment.Log?.newScope(string.Format("BMyPlugin({0}/{1}).TryRun", Plugins[i].Type, Plugins[i].SubType));
+                    Environment.Log?.PushStack(string.Format("BMyPlugin({0}/{1}).TryRun", Plugins[i].Type, Plugins[i].SubType));
                     success = Plugins[i].TryRun(Args, parameters);
-                    Environment.Log?.leaveScope();
+                    Environment.Log?.PopStack();
                     if (success)
                     {
                         Environment.Log?.Trace("Success on plugin \"{0}/{1}\" with {2}", Plugins[i].Type, Plugins[i].SubType, Args.ToString());
@@ -859,7 +566,7 @@ namespace BD_Refactor
                     Environment.Log?.Trace("No success with {0}", Args.ToString());
                 }
 
-                Environment.Log?.leaveScope();
+                Environment.Log?.PopStack();
                 return success;
             }
         }
@@ -919,14 +626,14 @@ namespace BD_Refactor
             public BMyDrawPlugin(BMyEnvironment Environment) : base(Environment) { }
             protected override bool isValidParameter(params object[] parameters)
             {
-                Environment.Log?.newScope("BMyDrawPlugin.isValidParameter");
+                Environment.Log?.PushStack("BMyDrawPlugin.isValidParameter");
                 bool valid = true;
                 if (parameters.Length == 1 && !(parameters[0] is BMyCanvas))
                 {
                     Environment.Log?.Trace("parameter must be of type {0}", "BMyCanvas");
                     valid = false;
                 }
-                Environment.Log?.leaveScope();
+                Environment.Log?.PopStack();
                 return valid;
             }
         }
@@ -1416,7 +1123,7 @@ namespace BD_Refactor
 
         #region included Libs
         public class BaconArgs { public string InputData; static public BaconArgs parse(string a) { return (new Parser()).parseArgs(a); } static public string Escape(object a) { return string.Format("{0}", a).Replace(@"\", @"\\").Replace(@" ", @"\ ").Replace(@"""", @"\"""); } static public string UnEscape(string a) { return a.Replace(@"\""", @"""").Replace(@"\ ", @" ").Replace(@"\\", @"\"); } public class Parser { static Dictionary<string, BaconArgs> h = new Dictionary<string, BaconArgs>(); public BaconArgs parseArgs(string a) { if (!h.ContainsKey(a)) { var b = new BaconArgs(); b.InputData = a; var c = false; var d = false; var e = new StringBuilder(); for (int f = 0; f < a.Length; f++) { var g = a[f]; if (c) { e.Append(g); c = false; } else if (g.Equals('\\')) c = true; else if (d && !g.Equals('"')) e.Append(g); else if (g.Equals('"')) d = !d; else if (g.Equals(' ')) if (e.ToString().Equals("--")) { b.add(a.Substring(f).TrimStart()); e.Clear(); break; } else { b.add(e.ToString()); e.Clear(); } else e.Append(g); } if (e.Length > 0) b.add(e.ToString()); h.Add(a, b); } return h[a]; } } protected Dictionary<char, int> h = new Dictionary<char, int>(); protected List<string> i = new List<string>(); protected Dictionary<string, List<string>> j = new Dictionary<string, List<string>>(); public List<string> getArguments() { return i; } public int getFlag(char a) { return h.ContainsKey(a) ? h[a] : 0; } public List<string> getOption(string a) { return j.ContainsKey(a) ? j[a] : new List<string>(); } public void add(string a) { if (a.Trim().Length > 0) if (!a.StartsWith("-")) { i.Add(a); } else if (a.StartsWith("--")) { KeyValuePair<string, string> b = k(a); string c = b.Key.Substring(2); if (!j.ContainsKey(c)) { j.Add(c, new List<string>()); } j[c].Add(b.Value); } else { string b = a.Substring(1); for (int d = 0; d < b.Length; d++) { if (this.h.ContainsKey(b[d])) { this.h[b[d]]++; } else { this.h.Add(b[d], 1); } } } } KeyValuePair<string, string> k(string a) { string[] b = a.Split(new char[] { '=' }, 2); return new KeyValuePair<string, string>(b[0], (b.Length > 1) ? b[1] : null); } public string ToArguments() { var a = new List<string>(); foreach (string argument in this.getArguments()) a.Add(Escape(argument)); foreach (KeyValuePair<string, List<string>> option in this.j) { var b = "--" + Escape(option.Key); foreach (string optVal in option.Value) a.Add(b + ((optVal != null) ? "=" + Escape(optVal) : "")); } var c = (h.Count > 0) ? "-" : ""; foreach (KeyValuePair<char, int> flag in h) c += new String(flag.Key, flag.Value); a.Add(c); return String.Join(" ", a.ToArray()); } override public string ToString() { var a = new List<string>(); foreach (string key in j.Keys) a.Add(l(key) + ":[" + string.Join(",", j[key].ConvertAll<string>(b => l(b)).ToArray()) + "]"); var c = new List<string>(); foreach (char key in h.Keys) c.Add(key + ":" + h[key].ToString()); var d = new StringBuilder(); d.Append("{\"a\":["); d.Append(string.Join(",", i.ConvertAll<string>(b => l(b)).ToArray())); d.Append("],\"o\":[{"); d.Append(string.Join("},{", a)); d.Append("}],\"f\":[{"); d.Append(string.Join("},{", c)); d.Append("}]}"); return d.ToString(); } string l(string a) { return (a != null) ? "\"" + a.Replace(@"\", @"\\").Replace(@"""", @"\""") + "\"" : @"null"; } }
-        public class BaconDebug { public const int OFF = 0; public const int FATAL = 1; public const int ERROR = 2; public const int WARN = 3; public const int INFO = 4; public const int DEBUG = 5; public const int TRACE = 6; Dictionary<int, string> h = new Dictionary<int, string>() { { OFF, "OFF" }, { FATAL, "FATAL" }, { ERROR, "ERROR" }, { WARN, "WARN" }, { INFO, "INFO" }, { DEBUG, "DEBUG" }, { TRACE, "TRACE" }, }; List<IMyTextPanel> j = new List<IMyTextPanel>(); MyGridProgram k; List<KeyValuePair<string, long>> l = new List<KeyValuePair<string, long>>(); int m = OFF; public string Format = @"[{0}-{1}.{2}][{3}][{4}][IC {5}/{6}][MCC {8}/{9}] {7}"; bool n = true; public int remainingInstructions { get { return k.Runtime.MaxInstructionCount - k.Runtime.CurrentInstructionCount; } } public bool autoscroll { get { return n; } set { n = value; } } public void clearPanels() { for (int a = 0; a < j.Count; a++) j[a].WritePublicText(""); } public BaconDebug(string a, IMyGridTerminalSystem b, MyGridProgram c, int d, string e = "BaconDebug") { this.m = d; var f = new List<IMyTerminalBlock>(); b.GetBlocksOfType<IMyTextPanel>(f, ((IMyTerminalBlock g) => g.CustomName.Contains(a) && g.CubeGrid.Equals(c.Me.CubeGrid))); j = f.ConvertAll<IMyTextPanel>(g => g as IMyTextPanel); this.k = c; newScope(e); } public int getVerbosity() { return m; } public MyGridProgram getGridProgram() { return this.k; } public void newScope(string a) { l.Add(new KeyValuePair<string, long>(a, DateTime.Now.Ticks)); if (this.m.Equals(TRACE)) this.Trace("STEP INTO SCOPE"); } public void leaveScope() { if (l.Count > 0 && this.m.Equals(TRACE)) this.Trace("LEAVE SCOPE ({0} Ticks)", o((l.Count > 0 ? l[l.Count - 1].Value : 0))); if (l.Count > 1) l.RemoveAt(l.Count - 1); } public string getSender() { if (l.Count > 0) if (this.m.Equals(TRACE)) { List<string> a = new List<string>(); foreach (KeyValuePair<string, long> entry in l) { a.Add(entry.Key); } return string.Join(">", a.ToArray()); } else { return l[l.Count - 1].Key; } return "NO SCOPE DEFINED"; } double o(long a) { long b = DateTime.Now.Ticks; return (Math.Max(a, b) - Math.Min(a, b)); } public void Fatal(string a, params object[] b) { Fatal(string.Format(a, b)); } public void Error(string a, params object[] b) { Error(string.Format(a, b)); } public void Warn(string a, params object[] b) { Warn(string.Format(a, b)); } public void Info(string a, params object[] b) { Info(string.Format(a, b)); } public void Debug(string a, params object[] b) { Debug(string.Format(a, b)); } public void Trace(string a, params object[] b) { Trace(string.Format(a, b)); } public void Fatal(string a) { add(a, FATAL); } public void Error(string a) { add(a, ERROR); } public void Warn(string a) { add(a, WARN); } public void Info(string a) { add(a, INFO); } public void Debug(string a) { add(a, DEBUG); } public void Trace(string a) { add(a, TRACE); } public void add(string a, int b) { p(a, b); if (b <= this.m) { var c = t(a, b); for (int d = 0; d < j.Count; d++) { var e = new List<string>(); e.AddRange(j[d].GetPublicText().Trim().Split(new char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)); e.Add(c); r(ref e, s(j[d])); var f = string.Join("\n", e.ToArray()); q(ref f); j[d].WritePublicText(f); } } } void p(string a, int b) { if (b <= ERROR) k.Echo(a); } void q(ref string a) { if (100000 < a.Length) { a = a.Substring(a.Length - 100000); int b = a.IndexOf('\n'); a = a.Substring(a.Length - b).TrimStart(new char[] { '\n', '\r' }); } } void r(ref List<string> a, int b) { if (autoscroll && 0 < b && b < a.Count) a.RemoveRange(0, a.Count - b); } int s(IMyTextPanel a) { float b = a.GetValueFloat("FontSize"); if (b == 0.0f) b = 0.01f; return Convert.ToInt32(Math.Ceiling(17.0f / b)); } string t(string a, int b) { DateTime c = DateTime.Now; object[] d = new object[] { c.ToShortDateString(), c.ToShortTimeString(), c.Millisecond.ToString().TrimStart('0'), u(b), getSender(), k.Runtime.CurrentInstructionCount, k.Runtime.MaxInstructionCount, a, k.Runtime.CurrentMethodCallCount, k.Runtime.MaxMethodCallCount, }; return string.Format(Format, d); } string u(int a) { if (h.ContainsKey(a)) return h[a]; return string.Format("`{0}`", a); } }
+        public class BMyLog4PB { public const byte E_ALL = 63; public const byte E_TRACE = 32; public const byte E_DEBUG = 16; public const byte E_INFO = 8; public const byte E_WARN = 4; public const byte E_ERROR = 2; public const byte E_FATAL = 1; Dictionary<string, string> i = new Dictionary<string, string>() { { "{Date}", "{0}" }, { "{Time}", "{1}" }, { "{Milliseconds}", "{2}" }, { "{Severity}", "{3}" }, { "{CurrentInstructionCount}", "{4}" }, { "{MaxInstructionCount}", "{5}" }, { "{Message}", "{6}" }, { "{Stack}", "{7}" } }; Stack<string> j = new Stack<string>(); public byte Filter; public readonly Dictionary<BMyAppenderBase, string> Appenders = new Dictionary<BMyAppenderBase, string>(); string k = @"[{0}-{1}/{2}][{3}][{4}/{5}][{7}] {6}"; string l = @"[{Date}-{Time}/{Milliseconds}][{Severity}][{CurrentInstructionCount}/{MaxInstructionCount}][{Stack}] {Message}"; public string Format { get { return l; } set { k = n(value); l = value; } } readonly Program m; public bool AutoFlush = true; public BMyLog4PB(Program a) : this(a, E_FATAL | E_ERROR | E_WARN | E_INFO, new BMyEchoAppender(a)) { } public BMyLog4PB(Program a, byte b, params BMyAppenderBase[] c) { Filter = b; this.m = a; foreach (var Appender in c) AddAppender(Appender); } string n(string a) { var b = a; foreach (var item in i) b = b.Replace(item.Key, item.Value); return b; } public BMyLog4PB Flush() { foreach (var AppenderItem in Appenders) AppenderItem.Key.Flush(); return this; } public BMyLog4PB PushStack(string a) { j.Push(a); return this; } public string PopStack() { return (j.Count > 0) ? j.Pop() : null; } string o() { return (j.Count > 0) ? j.Peek() : null; } public string StackToString() { if (If(E_TRACE) != null) { string[] a = j.ToArray(); Array.Reverse(a); return string.Join(@"/", a); } else return o(); } public BMyLog4PB AddAppender(BMyAppenderBase a, string b = null) { if (!Appenders.ContainsKey(a)) Appenders.Add(a, n(b)); return this; } public BMyLog4PB If(byte a) { return ((a & Filter) != 0) ? this : null; } public BMyLog4PB Fatal(string a, params object[] b) { If(E_FATAL).p("FATAL", a, b); return this; } public BMyLog4PB Error(string a, params object[] b) { If(E_ERROR).p("ERROR", a, b); return this; } public BMyLog4PB Warn(string a, params object[] b) { If(E_WARN).p("WARN", a, b); return this; } public BMyLog4PB Info(string a, params object[] b) { If(E_INFO).p("INFO", a, b); return this; } public BMyLog4PB Debug(string a, params object[] b) { If(E_DEBUG).p("DEBUG", a, b); return this; } public BMyLog4PB Trace(string a, params object[] b) { If(E_TRACE).p("TRACE", a, b); return this; } void p(string a, string b, params object[] c) { DateTime d = DateTime.Now; q e = new q(d.ToShortDateString(), d.ToLongTimeString(), d.Millisecond.ToString(), a, m.Runtime.CurrentInstructionCount, m.Runtime.MaxInstructionCount, string.Format(b, c), StackToString()); foreach (var item in Appenders) { var f = (item.Value != null) ? item.Value : k; item.Key.Enqueue(e.ToString(f)); if (AutoFlush) item.Key.Flush(); } } class q { public string Date; public string Time; public string Milliseconds; public string Severity; public int CurrentInstructionCount; public int MaxInstructionCount; public string Message; public string Stack; public q(string a, string b, string c, string d, int e, int f, string g, string h) { this.Date = a; this.Time = b; this.Milliseconds = c; this.Severity = d; this.CurrentInstructionCount = e; this.MaxInstructionCount = f; this.Message = g; this.Stack = h; } public override string ToString() { return ToString(@"{0},{1},{2},{3},{4},{5},{6},{7},{8}"); } public string ToString(string a) { return string.Format(a, Date, Time, Milliseconds, Severity, CurrentInstructionCount, MaxInstructionCount, Message, Stack); } } public class BMyTextPanelAppender : BMyAppenderBase { List<string> i = new List<string>(); List<IMyTextPanel> j = new List<IMyTextPanel>(); public bool Autoscroll = true; public bool Prepend = false; public BMyTextPanelAppender(string a, Program b) { b.GridTerminalSystem.GetBlocksOfType<IMyTextPanel>(j, (c => c.CustomName.Contains(a))); } public override void Enqueue(string a) { i.Add(a); } public override void Flush() { foreach (var Panel in j) { k(Panel); Panel.ShowTextureOnScreen(); Panel.ShowPrivateTextOnScreen(); } i.Clear(); } void k(IMyTextPanel a) { if (Autoscroll) { var b = new List<string>(a.GetPrivateText().Split(new char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)); b.AddRange(i); int c = Math.Min(l(a), b.Count); if (Prepend) b.Reverse(); a.WritePrivateText(string.Join("\n", b.GetRange(b.Count - c, c).ToArray()), false); } else if (Prepend) { var b = new List<string>(a.GetPrivateText().Split(new char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)); b.AddRange(i); b.Reverse(); a.WritePrivateText(string.Join("\n", b.ToArray()), false); } else { a.WritePrivateText(string.Join("\n", i.ToArray()), true); } } int l(IMyTextPanel a) { float b = a.GetValueFloat("FontSize"); if (b == 0.0f) b = 0.01f; return Convert.ToInt32(Math.Ceiling(17.0f / b)); } } public class BMyKryptDebugSrvAppender : BMyAppenderBase { IMyProgrammableBlock i; Queue<string> j = new Queue<string>(); public BMyKryptDebugSrvAppender(Program a) { i = a.GridTerminalSystem.GetBlockWithName("DebugSrv") as IMyProgrammableBlock; } public override void Flush() { if (i != null) { var a = true; while (a && j.Count > 0) if (i.TryRun("L" + j.Peek())) { j.Dequeue(); } else { a = false; } } } public override void Enqueue(string a) { j.Enqueue(a); } } public class BMyEchoAppender : BMyAppenderBase { Program i; public BMyEchoAppender(Program a) { this.i = a; } public override void Flush() { } public override void Enqueue(string a) { i.Echo(a); } } public abstract class BMyAppenderBase { public abstract void Enqueue(string a); public abstract void Flush(); } }
         class BMyDynamicDictionary<TKey, TValue> : Dictionary<TKey, TValue>
         {
             private TValue _default;
