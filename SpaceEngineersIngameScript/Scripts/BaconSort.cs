@@ -24,394 +24,669 @@ namespace BaconSort
         Copyright 2016 Thomas Klose <thomas@bratler.net>
         License: https://github.com/BaconFist/SpaceEngineersIngameScript/blob/master/LICENSE
         Source: https://github.com/BaconFist/SpaceEngineersIngameScript/blob/master/SpaceEngineersIngameScript/Scripts/BaconSort.cs
-
-Description
-===========
-Inventory Sorting
-    - Sort Items by tags in the Blockname
-            Tags: #ammo, #component, #bottle, #ingot, #ore, #handtool
-    - Ignores all Reactors by default
-    - Ignores all containers with "#!BaconSort" in their Name
+        
+        Inventory Sorting
+        - Sort Items by tags in the Blockname
+                Tags: #ammo, #component, #bottle, #ingot, #ore, #handtool
+        - Ignore all Reactors by default (can be changed by arguments)
+        - Ignore all Weapons by default (can be changed by arguments)
+        - Ignore all containers with "#!BaconSort" in their Name (can be changed by arguments)
+        - Ignore docked Ships & Stations (can be changed by arguments)        
+        - Sorts only once every 5 minutes (can be changed by arguments)
  
-    How it works: 
-    * Add any tag to a Container with an Inventory to pull items of this type in it. 
-    * Script is lazy, it will sort a item only if it is not in a Container with a matching tag. (Example: It will not pull an SteelPlate from an container called "Large Cargo Container #component") 
-    * Source & Target Block must match some requirements: 1. Same Grid as PB, 2. Must be connected throug Conveyor-System, 4. Must be Enabled aka turned ON 
-             
-             
-    Known Bugs: 
-    * not working with Hydrogen Tanks. (will fix this as soon as i know why.) 
-                                 
-    Example 
-    ------------------------------ 
-    Blocks: "Cargo 1 #ingot #ammo", "Cargo 2 #component", Cargo 3" 
-    This will try to sort all Ingots and ammo in Cargo 1 and all components in Cargo 2. 
+        How it works: 
+        * Add any tag to a Container with an Inventory to pull items of this type in it. 
+        * Script is lazy, it will sort a item only if it is not in a Container with a matching tag. (Example: It will not pull an SteelPlate from an container called "Large Cargo Container #component") 
+        * Source & Target Block must match some requirements: 1. Same Grid as PB, 2. Must be connected throug Conveyor-System
+            
+        
+            
 
+        Arguments for Storting:
+       ====================================
+            --reactors
+                Also sort Inventories of reactors
+            --weapons
+                Also sort Inventories of Weapons
+            --docked
+                Also sort inventories from docked Ships and Stations
+            --ignore="TAG"
+                ignore all Blocks with TAG in its name where TAG defaults to "#!BaconSort"
+               
 
-        */
+        Arguments for Logging:
+       ====================================
+            --log-noecho    
+                Disable log messages in Detailed Info
 
-        // BEGIN - settings
-        const bool IGNORE_REACTOR = true; // when set to true, this script will ignore all reactors to prevent power loss.
-        const string IGNORE_TAG = "#!BaconSort"; // every Block with this in its name will be ignores
-        const double preventExecutionForSeconds = 180; // scipt will not run twice in this 
-                                                     // timespan. (This is mostly a workaround
-                                                     // to the weird behavior of timers on Servers.)
-        // END - settings
+            --log-lcd="TAG"
+                Print Log Messages on TextPanels/LCDs where TAG is in its Name 
+                  
+            --log-filter="F" (Default: fatal,error,warn,info)
+                Only log messages if type "F" wehre F can be any of TRACE,DEBUG,INFO,WARN,ERROR,FATAL,ALL.
+                Can be defined more than once (like --log-filter="info" --log-filter="warn")
+                Can also be defined like --log-filter="debug,WARN,Fatal".
+                "ALL" is equal to a combination of all other filters.
 
-        // BEGIN - LOG settings
-        const bool LOG = true; // enabel disable Logging at all
-        private string LOG_SCREEN = null; // the log will be displayed on any LCD of the PBs Grid with this in name. set to `null` to disable it.
-        private int LOG_LEVEL = 1; // can be any of LOG_LEVEL_*, where higher number means more verbose Log.
-        const string LOG_MODE = ""; // can be used to log funcion calls asn return values, this WILL cause massive lag and is for development purpose only.
-        // BEGIN - LOG settings
+        Arguments for other stuff:
+       ==================================
+            --sleep="N"
+                scipt waits N seconfs before executing sorting loop where N defaults to 300 (5 minutes)
+                    //this is a workaround for flashing timer bug on Dedicated Servers.
+                     
+        **/
 
-        // DONT CHANGE ANYTHING BELOW --------------------------------------------
-
-        const int LOG_LEVEL_ECHO = 1;
-        const int LOG_LEVEL_INFO = 2;
-        const int LOG_LEVEL_ERROR = 3;
-        const int LOG_LEVEL_DEBUG = 4;
-
-        const string LOG_MODE_FUNCTIONCALL = "[FUNCTIONCALL]";
-        const string LOG_MODE_RETURN = "[RETURN]";
-
-        static public Dictionary<string, string> s_TypeTagMap = null;
-        static public List<string> s_Tags = null;
-        private List<IMyTextPanel> LogPanels = null;
-        static public double timeToWait = 0;
-
-
-        public Program()
-        {
-            timeToWait = preventExecutionForSeconds;
-        }
-
-        public void Save()
-        {
-        }
 
         public void Main(string argument)
         {
-            bootStrapLog();
-            Log("Script START", LOG_LEVEL_ECHO);
-            if (doExecute())
-            {
-                Log_FunctionCall("Program", new KeyValuePair<string, string>[] { new KeyValuePair<string, string>("IGNORE_TAG", IGNORE_TAG) });
-                Log_FunctionCall("Main", new KeyValuePair<string, string>[] { new KeyValuePair<string, string>("argument", argument) });
-                List<IMyTerminalBlock> SourceBlocks = getSourceBlocks(IGNORE_TAG);
-                Dictionary<string, string> TypeMap = getTypeTagMap();
-                List<string> Tags = getTags(TypeMap);
-                Dictionary<string, List<IMyTerminalBlock>> DestinationBlocksMap = getDestinationBlocksMap(Tags, IGNORE_TAG);
-                doSortAll(SourceBlocks, DestinationBlocksMap, TypeMap);
-                Log_Return("Main", "void");
-            }
-            if (LOG_LEVEL == LOG_LEVEL_ECHO) { Log("Script END", LOG_LEVEL_ECHO); }
-            Log("Script END (" + Runtime.LastRunTimeMs.ToString() + "ms)", LOG_LEVEL_DEBUG);
-        }
-
-        private bool doExecute()
-        {
-            Log_FunctionCall("doExecute", new KeyValuePair<string, string>[] { });
-            bool result = false;
-
-            timeToWait = timeToWait - Runtime.TimeSinceLastRun.TotalSeconds;
-            Log("Time to Wait: " + Math.Round(timeToWait, 2).ToString("0.##"), LOG_LEVEL_ECHO);
-            if (timeToWait > 0)
-            {
-                result = false;
-            } else
-            {                
-                result = true;
-                timeToWait = preventExecutionForSeconds;
-            }            
-
-            Log_Return("doExecute", result.ToString());
-            return result;
-        }
-
-        private void doSortAll(List<IMyTerminalBlock> SourceBlocks, Dictionary<string, List<IMyTerminalBlock>> DestinationBlocksMap, Dictionary<string, string> TypeMap)
-        {
-            Log_FunctionCall("doSortAll", new KeyValuePair<string, string>[] { new KeyValuePair<string, string>("SourceBlocks", SourceBlocks.ToString()), new KeyValuePair<string, string>("DestinationBlocksMap", DestinationBlocksMap.ToString()), new KeyValuePair<string, string>("TypeMap", TypeMap.ToString()) });
-            for(int i_SourceBLocks = 0; i_SourceBLocks < SourceBlocks.Count; i_SourceBLocks++)
-            {
-                IMyTerminalBlock SourceBlock = SourceBlocks[i_SourceBLocks];
-                int sourceInventoryCount = SourceBlock.GetInventoryCount();
-                Log(SourceBlock.CustomName + " with " + sourceInventoryCount.ToString() + " Inventories.", LOG_LEVEL_INFO);
-                if (sourceInventoryCount > 0)
+            BaconArgs Args = BaconArgs.parse(argument);
+            BootstrapLog(Args);
+            try {
+                Log?.Debug("Stat Script at {0}", DateTime.Now);
+                if (isAllowedToExecute(Args))
                 {
-                    for (int i_sourceInventory = 0; i_sourceInventory < sourceInventoryCount; i_sourceInventory++)
+                    Run(Args);
+                }
+            } catch(Exception e) {
+                Log?.Fatal("Exception of Type {0} occured. Script Execution Terminated. => {1}", e.GetType().Name, e.Message);
+            } finally
+            {
+                Log?.Flush();
+            }
+        }
+
+        private void Run(BaconArgs Args)
+        {
+            Log?.PushStack("private void Run()");
+            if (Args.hasOption("reactors"))
+            {
+                INCLUDE_REACTORS = true;
+                Log?.Info("Include reactors in sorting.");
+            }
+            if (Args.hasOption("weapons"))
+            {
+                INCLUDE_WEAPONS = true;
+                Log?.Info("Include weapons in sorting.");
+            }
+            if (Args.hasOption("docked"))
+            {
+                INCLUDE_DOCKED = true;
+                Log?.Info("Include docked in sorting.");
+            }
+            if(Args.hasOption("ignore") && Args.getOption("ignore")[0] != null)
+            {
+                TAG_IGNORE = Args.getOption("ignore")[0];
+                Log?.Info("Use Tag \"{0}\" instead of \"#!BaconSort\" to exclude containers.", TAG_IGNORE);
+            }
+            List<IMyTerminalBlock> SourceBlocks = findAllBlocks();
+            Dictionary<string, List<IMyTerminalBlock>> DestinationBlockMap = getDestinationMap(SourceBlocks);
+            foreach (IMyTerminalBlock SourceBlock in SourceBlocks)
+            {
+                DoSortContainer(SourceBlock, DestinationBlockMap);
+            }
+            Log?.PopStack();
+        }
+
+        #region execution time control
+        private bool isAllowedToExecute(BaconArgs Args)
+        {
+            if(LastRun == null)
+            {
+                return true;
+            }
+            int buff = 0;
+            if(Args.hasOption("sleep") && int.TryParse(Args.getOption("sleep")[0], out buff))
+            {
+                sleepTimeS = buff;
+            }
+            Log?.Debug("execution limit once every {0} seconds", sleepTimeS);
+
+            TimeSpan TimeSinceLastRun = DateTime.Now.Subtract(LastRun);
+            if(sleepTimeS <= TimeSinceLastRun.TotalSeconds)
+            {
+                LastRun = DateTime.Now;
+                return true;
+            }
+
+            Log?.Info("Sorting in {0} seconds.", sleepTimeS - TimeSinceLastRun.TotalSeconds);
+            return false;
+        }
+
+        private DateTime LastRun;
+        private int sleepTimeS = 300;
+        #endregion execution time control
+
+        #region Log
+        BMyLog4PB Log;
+        byte log_Filter = BMyLog4PB.E_FATAL | BMyLog4PB.E_ERROR | BMyLog4PB.E_WARN | BMyLog4PB.E_INFO;
+
+
+        private void BootstrapLog(BaconArgs Args)
+        {
+            Log = new BMyLog4PB(this, 0);
+            if (!Args.hasOption("log-noecho"))
+            {
+                Log?.AddAppender(new BMyLog4PB.BMyEchoAppender(this));
+            }            
+            if (Args.hasOption("log-lcd"))
+            {
+                string logLcdTag = Args.getOption("log-lcd")[0];
+                if(logLcdTag != null)
+                {
+                    Log?.AddAppender(new BMyLog4PB.BMyTextPanelAppender(logLcdTag,this));
+                }
+            }            
+            if (Args.hasOption("log-filter") && Args.getOption("log-filter").Count > 0)
+            {
+                log_Filter = 0;
+                foreach(string filterArgValue in Args.getOption("log-filter"))
+                {
+                    string[] filterList = filterArgValue.ToLowerInvariant().Split(new Char[]{ ',' }, StringSplitOptions.RemoveEmptyEntries);
+                    foreach (string filter in filterList)
                     {
-                        Log("Sorting Inventory " + (i_sourceInventory+1).ToString() + " of " + sourceInventoryCount.ToString() + " from Block " + SourceBlock.CustomName, LOG_LEVEL_INFO);
-                        IMyInventory SourceInventory = SourceBlock.GetInventory(i_sourceInventory);
-                        doSortInventory(SourceBlock, SourceInventory, DestinationBlocksMap, TypeMap);
+                        switch (filter)
+                        {
+                            case "trace":
+                                log_Filter |= BMyLog4PB.E_TRACE;
+                                break;
+                            case "debug":
+                                log_Filter |= BMyLog4PB.E_DEBUG;
+                                break;
+                            case "info":
+                                log_Filter |= BMyLog4PB.E_INFO;
+                                break;
+                            case "warn":
+                                log_Filter |= BMyLog4PB.E_WARN;
+                                break;
+                            case "error":
+                                log_Filter |= BMyLog4PB.E_ERROR;
+                                break;
+                            case "fatal":
+                                log_Filter |= BMyLog4PB.E_FATAL;
+                                break;
+                            case "all":
+                                log_Filter |= BMyLog4PB.E_ALL;
+                                break;
+                        }
                     }
                 }
             }
-            Log_Return("doSortAll", "void");
-        }
-
-        private void doSortInventory(IMyTerminalBlock SourceBlock, IMyInventory SourceInventory, Dictionary<string, List<IMyTerminalBlock>> DestinationBlocksMap, Dictionary<string, string> TypeMap)
-        {
-            Log_FunctionCall("doSortInventory", new KeyValuePair<string, string>[] { new KeyValuePair<string, string>("SourceBlock", SourceBlock.CustomName), new KeyValuePair<string, string>("SourceInventory", SourceInventory.ToString()), new KeyValuePair<string, string>("DestinationBlocksMap", DestinationBlocksMap.ToString()), new KeyValuePair<string, string>("TypeMap", TypeMap.ToString()) });
-            List<IMyInventoryItem> SourceItems = SourceInventory.GetItems();
-            for (int i_SourceItems = SourceItems.Count - 1; i_SourceItems >= 0; i_SourceItems--)
-            {
-                IMyInventoryItem SourceItem = SourceItems[i_SourceItems];
-                Log("sorting " + SourceItem.Content.SubtypeName + " from " + SourceBlock.CustomName, LOG_LEVEL_INFO);
-                doSortItem(i_SourceItems, SourceItem, SourceBlock, SourceInventory, DestinationBlocksMap, TypeMap);
+            if (Log != null) {
+                Log.Filter = log_Filter;
             }
-            Log_Return("doSortInventory", "void");
+        }
+        #endregion Log
+
+        #region sorting
+
+        private Dictionary<string, string> TypeTagMap = new Dictionary<string, string>() {
+            {"MyObjectBuilder_AmmoMagazine", "#ammo"},
+            {"MyObjectBuilder_Component", "#component"},
+            {"MyObjectBuilder_GasContainerObject", "#bottle"},
+            {"MyObjectBuilder_OxygenContainerObject", "#bottle"},
+            {"MyObjectBuilder_Ingot", "#ingot"},
+            {"MyObjectBuilder_Ore", "#ore"},
+            {"MyObjectBuilder_PhysicalGunObject", "#handtool"}
+        };
+        
+        private string TAG_IGNORE = "#!BaconSort";
+        private bool INCLUDE_REACTORS = false;
+        private bool INCLUDE_WEAPONS = false;
+        private bool INCLUDE_DOCKED = false;
+
+        private void DoSortContainer(IMyTerminalBlock SourceBlock, Dictionary<string, List<IMyTerminalBlock>> DestinationMap)
+        {
+            Log?.PushStack("private void DoSortContainer(IMyTerminalBlock SourceBlock, Dictionary<string, List<IMyTerminalBlock>> DestinationMap)");
+            for(int i_SourceBlockInventory = 0; i_SourceBlockInventory < SourceBlock.GetInventoryCount(); i_SourceBlockInventory++)
+            {
+                IMyInventory InventorySource = SourceBlock.GetInventory(i_SourceBlockInventory);
+                for(int i_Item=InventorySource.GetItems().Count-1;i_Item>=0;i_Item--)
+                {
+                    bool isItemPending = true;
+                    IMyInventoryItem Item = InventorySource.GetItems()[i_Item];
+                    string typeId = Item.Content.TypeId.ToString();
+                    if (TypeTagMap.ContainsKey(typeId))
+                    {
+                        string tag = TypeTagMap[typeId];
+                        if (SourceBlock.CustomName.Contains(tag))
+                        {
+                            if (DestinationMap.ContainsKey(tag) && DestinationMap[tag].Count > 0)
+                            {
+                                Log?.Info("Found {0} Containers for \"{1}\"", DestinationMap[tag].Count, tag);
+                                for(int i_DestinationBlock = 0; isItemPending && i_DestinationBlock < DestinationMap[tag].Count; i_DestinationBlock++)
+                                {
+                                    IMyTerminalBlock DestinationBlock = DestinationMap[tag][i_DestinationBlock];
+                                    for(int i_DestinationBlockInventory = 0; isItemPending && i_DestinationBlockInventory < DestinationBlock.GetInventoryCount(); i_DestinationBlockInventory++)
+                                    {
+                                        IMyInventory InventoryDestination = DestinationBlock.GetInventory(i_DestinationBlockInventory);
+                                        if (InventorySource.IsConnectedTo(InventoryDestination))
+                                        {
+                                            VRage.MyFixedPoint lastAmount = Item.Amount;
+                                            InventorySource.TransferItemTo(InventoryDestination, i_Item, null, true);
+                                            VRage.MyFixedPoint movedAmount = lastAmount - Item.Amount;
+                                            isItemPending = Item.Amount > 0;
+                                            Log?.Info("Moved {0} of {1} from \"{2}\" to \"{3}\". Remaining: {4}", movedAmount, Item.Content.SubtypeName, SourceBlock.CustomName, DestinationBlock.CustomName, Item.Amount);
+                                        } else
+                                        {
+                                            Log?.Error("Block \"{0}\" has no connection to Block \"{1}\". Please check your conveyors.", SourceBlock.CustomName, DestinationBlock.CustomName);
+                                        }
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                Log?.Info("No destination for \"{0}\" defined. Skip Item", tag);
+                            }
+                        } else
+                        {
+                            Log?.Info("Item already sorted correctly. Skip Item");
+                        }
+                        
+                    } else
+                    {
+                        Log?.Error("Unknown Type \"{0}\". Skip Item", typeId);
+                    }
+                    if (isItemPending)
+                    {
+                        Log?.Warn("Cant move all of {0} from \"{1}\"", Item.Content.SubtypeName, SourceBlock.CustomName);
+                    }
+                }
+            }
+            Log?.PopStack();
         }
 
-        private void doSortItem(int i_SourceItems, IMyInventoryItem SourceItem, IMyTerminalBlock SourceBlock, IMyInventory SourceInventory, Dictionary<string, List<IMyTerminalBlock>> DestinationBlocksMap, Dictionary<string, string> TypeMap)
+        private Dictionary<string, List<IMyTerminalBlock>> getDestinationMap(List<IMyTerminalBlock> OriginBlocks)
         {
-            Log_FunctionCall("doSortItem", new KeyValuePair<string, string>[] { new KeyValuePair<string, string>("i_SourceItem", i_SourceItems.ToString()), new KeyValuePair<string, string>("SourceItem", SourceItem.Content.SubtypeName), new KeyValuePair<string, string>("SourceInventory", SourceInventory.ToString()), new KeyValuePair<string, string>("DestinationBlocksMap", DestinationBlocksMap.ToString()), new KeyValuePair<string, string>("TypeMap", TypeMap.ToString()) });
-            bool itemIsPending = true;
-            string tag = getTag(SourceItem, TypeMap);
-            if (!SourceBlock.CustomName.Contains(tag) && DestinationBlocksMap.ContainsKey(tag))
+            Log?.PushStack("private Dictionary<string, List<IMyTerminalBlock>> getDestinationMap(List<IMyTerminalBlock> OriginBlocks)");
+            Dictionary<string, List<IMyTerminalBlock>> Buffer = new Dictionary<string, List<IMyTerminalBlock>>();
+            foreach (IMyTerminalBlock Block in OriginBlocks)
             {
-                List<IMyTerminalBlock> DestinationBlocks = DestinationBlocksMap[tag];
-                Log("Tag '" + tag + "' has " + DestinationBlocks.Count.ToString() + " possible Destinations", LOG_LEVEL_INFO);
-
-                for (int i_DestinationBlocks = 0; itemIsPending && i_DestinationBlocks < DestinationBlocks.Count; i_DestinationBlocks++)
+                foreach (KeyValuePair<string, string> slug in TypeTagMap)
                 {
-                    IMyTerminalBlock DestinationBlock = DestinationBlocks[i_DestinationBlocks];
-                    int destinationInventoryCount = DestinationBlock.GetInventoryCount();
-                    Log("Try Destination " + DestinationBlock.CustomName + " with " +destinationInventoryCount.ToString() + " Inventories.", LOG_LEVEL_INFO);
-                    if (destinationInventoryCount > 0)
+                    string tag = slug.Value;
+                    if (Block.CustomName.Contains(tag))
                     {
-                        for (int i_DestinationInventory = 0; itemIsPending && i_DestinationInventory < destinationInventoryCount; i_DestinationInventory++)
+                        if (!Buffer.ContainsKey(tag))
                         {
-                            VRage.MyFixedPoint lastAmmount = SourceItem.Amount;
-                            IMyInventory DestinationInventory = DestinationBlock.GetInventory(i_DestinationInventory);
-                            Log(DestinationBlock.CustomName + " Inventory #" + (i_DestinationInventory + 1).ToString(), LOG_LEVEL_INFO); 
-                            if (SourceInventory.IsConnectedTo(DestinationInventory))
+                            Buffer.Add(slug.Value, new List<IMyTerminalBlock>());
+                        }
+                        Buffer[tag].Add(Block);
+                        Log?.Info("Container {0} added as Destination for {1}", Block.CustomName, tag);
+                    }
+                }
+            }
+            Log?.PopStack();
+            return Buffer;
+        }
+
+        private List<IMyTerminalBlock> findAllBlocks()
+        {
+            Log?.PushStack("private List<IMyTerminalBlock> findAllBlocks()");
+            List<IMyTerminalBlock> Blocks = new List<IMyTerminalBlock>();
+            GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(Blocks, 
+                (b => 
+                    b.HasInventory() 
+                && 
+                    !b.CustomName.Contains(TAG_IGNORE)
+                &&
+                    (
+                        INCLUDE_DOCKED 
+                        ||
+                        b.CubeGrid.Equals(Me.CubeGrid)
+                    )
+                &&
+                    (
+                        INCLUDE_REACTORS
+                        ||
+                        !(b is IMyReactor)
+                    )
+                &&
+                    (
+                        INCLUDE_WEAPONS
+                        ||
+                        (
+                            !(b is IMySmallGatlingGun)
+                            &&
+                            !(b is IMySmallMissileLauncherReload)
+                            &&
+                            !(b is IMySmallMissileLauncher)
+                            &&
+                            !(b is IMyLargeMissileTurret)
+                            &&
+                            !(b is IMyLargeInteriorTurret)
+                            &&
+                            !(b is IMyLargeGatlingTurret)                        
+                       )
+                    )
+                )
+            );
+            Log?.Debug("Found {0} Blocks to be sorted.", Blocks.Count);
+            Log?.PopStack();
+            return Blocks;
+        }
+        #endregion sorting
+
+
+
+
+        #region includes
+        public class BMyLog4PB
+        {
+            public const byte E_ALL = 63;
+            public const byte E_TRACE = 32; //Lowest	Finest-grained informational events.
+            public const byte E_DEBUG = 16; //Fine-grained informational events that are most useful to debug an application.
+            public const byte E_INFO = 8; //Informational messages that highlight the progress of the application at coarse-grained level.
+            public const byte E_WARN = 4; //Potentially harmful situations which still allow the application to continue running.
+            public const byte E_ERROR = 2; //Error events that might still allow the application to continue running.
+            public const byte E_FATAL = 1; //Highest	Very severe error events that will presumably lead the application to abort.
+
+            private Dictionary<string, string> formatMarkerMap = new Dictionary<string, string>() {
+                {"{Date}","{0}"},
+                {"{Time}","{1}"},
+                {"{Milliseconds}","{2}"},
+                {"{Severity}","{3}"},
+                {"{CurrentInstructionCount}","{4}"},
+                {"{MaxInstructionCount}","{5}"},
+                {"{Message}","{6}"},
+                {"{Stack}","{7}" }
+            };
+            private Stack<string> Stack = new Stack<string>();
+            public byte Filter;
+            public readonly Dictionary<BMyAppenderBase, string> Appenders = new Dictionary<BMyAppenderBase, string>();
+            private string _defaultFormat = @"[{0}-{1}/{2}][{3}][{4}/{5}][{7}] {6}";
+            private string _formatRaw = @"[{Date}-{Time}/{Milliseconds}][{Severity}][{CurrentInstructionCount}/{MaxInstructionCount}][{Stack}] {Message}";
+            public string Format
+            {
+                get { return _formatRaw; }
+                set
+                {
+                    _defaultFormat = compileFormat(value);
+                    _formatRaw = value;
+                }
+            }
+            private readonly Program Assembly;
+            public bool AutoFlush = true;
+
+            public BMyLog4PB(Program Assembly) : this(Assembly, E_FATAL | E_ERROR | E_WARN | E_INFO, new BMyEchoAppender(Assembly))
+            {
+
+            }
+            public BMyLog4PB(Program Assembly, byte filter, params BMyAppenderBase[] Appenders)
+            {
+                Filter = filter;
+                this.Assembly = Assembly;
+                foreach (var Appender in Appenders)
+                {
+                    AddAppender(Appender);
+                }
+            }
+            private string compileFormat(string value)
+            {
+                string format = value;
+                foreach (var item in formatMarkerMap)
+                {
+                    format = format?.Replace(item.Key, item.Value);
+                }
+                return format;
+            }
+
+            public BMyLog4PB Flush()
+            {
+                foreach (var AppenderItem in Appenders)
+                {
+                    AppenderItem.Key.Flush();
+                }
+                return this;
+            }
+            public BMyLog4PB PushStack(string name)
+            {
+                Stack.Push(name);
+                return this;
+            }
+            public string PopStack()
+            {
+                return (Stack.Count > 0) ? Stack.Pop() : null;
+            }
+            private string PeekStack()
+            {
+                return (Stack.Count > 0) ? Stack.Peek() : null;
+            }
+            public string StackToString()
+            {
+                if (If(E_TRACE) != null)
+                {
+                    string[] buffer = Stack.ToArray();
+                    Array.Reverse(buffer);
+                    return string.Join(@"/", buffer);
+                }
+                else
+                {
+                    return PeekStack();
+                }
+            }
+            public BMyLog4PB AddAppender(BMyAppenderBase Appender, string format = null)
+            {
+                if (!Appenders.ContainsKey(Appender))
+                {
+                    Appenders.Add(Appender, compileFormat(format));
+                }
+
+                return this;
+            }
+            public BMyLog4PB If(byte filter)
+            {
+                return ((filter & Filter) != 0) ? this : null;
+            }
+            public BMyLog4PB Fatal(string format, params object[] values)
+            {
+                If(E_FATAL)?.Append("FATAL", format, values);
+                return this;
+            }
+            public BMyLog4PB Error(string format, params object[] values)
+            {
+                If(E_ERROR)?.Append("ERROR", format, values);
+                return this;
+            }
+            public BMyLog4PB Warn(string format, params object[] values)
+            {
+                If(E_WARN)?.Append("WARN", format, values);
+                return this;
+            }
+            public BMyLog4PB Info(string format, params object[] values)
+            {
+                If(E_INFO)?.Append("INFO", format, values);
+                return this;
+            }
+            public BMyLog4PB Debug(string format, params object[] values)
+            {
+                If(E_DEBUG)?.Append("DEBUG", format, values);
+                return this;
+            }
+            public BMyLog4PB Trace(string format, params object[] values)
+            {
+                If(E_TRACE)?.Append("TRACE", format, values);
+                return this;
+            }
+            private void Append(string level, string format, params object[] values)
+            {
+                DateTime DT = DateTime.Now;
+                var message = new BMyMessage(
+                    DT.ToShortDateString(),
+                    DT.ToLongTimeString(),
+                    DT.Millisecond.ToString(),
+                    level,
+                    Assembly.Runtime.CurrentInstructionCount,
+                    Assembly.Runtime.MaxInstructionCount,
+                    string.Format(format, values),
+                    StackToString()
+                );
+                foreach (var item in Appenders)
+                {
+                    var formatBuffer = (item.Value != null) ? item.Value : _defaultFormat;
+                    item.Key.Enqueue(message.ToString(formatBuffer));
+                    if (AutoFlush)
+                    {
+                        item.Key.Flush();
+                    }
+                }
+            }
+            class BMyMessage
+            {
+                public string Date;
+                public string Time;
+                public string Milliseconds;
+                public string Severity;
+                public int CurrentInstructionCount;
+                public int MaxInstructionCount;
+                public string Message;
+                public string Stack;
+                public BMyMessage(string Date, string Time, string Milliseconds, string Severity, int CurrentInstructionCount, int MaxInstructionCount, string Message, string Stack)
+                {
+                    this.Date = Date;
+                    this.Time = Time;
+                    this.Milliseconds = Milliseconds;
+                    this.Severity = Severity;
+                    this.CurrentInstructionCount = CurrentInstructionCount;
+                    this.MaxInstructionCount = MaxInstructionCount;
+                    this.Message = Message;
+                    this.Stack = Stack;
+                }
+                public override string ToString()
+                {
+                    return ToString(@"{0},{1},{2},{3},{4},{5},{6},{7},{8}");
+                }
+                public string ToString(string format)
+                {
+                    return string.Format(
+                        format,
+                        Date,
+                        Time,
+                        Milliseconds,
+                        Severity,
+                        CurrentInstructionCount,
+                        MaxInstructionCount,
+                        Message,
+                        Stack
+                        );
+                }
+            }
+            public class BMyTextPanelAppender : BMyAppenderBase
+            {
+                List<string> Queue = new List<string>();
+                List<IMyTextPanel> Panels = new List<IMyTextPanel>();
+                public bool Autoscroll = true;
+                public bool Prepend = false;
+                public BMyTextPanelAppender(string tag, Program Assembly)
+                {
+                    Assembly.GridTerminalSystem.GetBlocksOfType<IMyTextPanel>(Panels, (p => p.CustomName.Contains(tag)));
+                }
+                public override void Enqueue(string message)
+                {
+                    Queue.Add(message);
+                }
+                public override void Flush()
+                {
+                    foreach (var Panel in Panels)
+                    {
+                        AddEntriesToPanel(Panel);
+                        Panel.ShowTextureOnScreen();
+                        Panel.ShowPublicTextOnScreen();
+                    }
+                    Queue.Clear();
+                }
+                private void AddEntriesToPanel(IMyTextPanel Panel)
+                {
+                    if (Autoscroll)
+                    {
+                        List<string> buffer = new List<string>(Panel.GetPublicText().Split(new char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries));
+                        buffer.AddRange(Queue);
+                        int maxLines = Math.Min(getMaxLinesFromPanel(Panel), buffer.Count);
+                        if (Prepend)
+                        {
+                            buffer.Reverse();
+                        }
+                        Panel.WritePublicText(string.Join("\n", buffer.GetRange(buffer.Count - maxLines, maxLines).ToArray()), false);
+                    }
+                    else
+                    {
+                        if (Prepend)
+                        {
+                            var buffer = new List<string>(Panel.GetPublicText().Split(new char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries));
+                            buffer.AddRange(Queue);
+                            buffer.Reverse();
+                            Panel.WritePublicText(string.Join("\n", buffer.ToArray()), false);
+                        }
+                        else
+                        {
+                            Panel.WritePublicText(string.Join("\n", Queue.ToArray()), true);
+                        }
+                    }
+                }
+                private int getMaxLinesFromPanel(IMyTextPanel Panel)
+                {
+                    float fontSize = Panel.GetValueFloat("FontSize");
+                    if (fontSize == 0.0f)
+                    {
+                        fontSize = 0.01f;
+                    }
+                    return Convert.ToInt32(Math.Ceiling(17.0f / fontSize));
+                }
+            }
+            public class BMyKryptDebugSrvAppender : BMyAppenderBase
+            {
+                private IMyProgrammableBlock _debugSrv;
+                private Queue<string> queue = new Queue<string>();
+                public BMyKryptDebugSrvAppender(Program Assembly)
+                {
+                    _debugSrv = Assembly.GridTerminalSystem.GetBlockWithName("DebugSrv") as IMyProgrammableBlock;
+                }
+                public override void Flush()
+                {
+                    if (_debugSrv != null)
+                    {
+                        bool proceed = true;
+                        while (proceed && queue.Count > 0)
+                        {
+                            if (_debugSrv.TryRun("L" + queue.Peek()))
                             {
-                                Log("is connected", LOG_LEVEL_INFO);
-                                if (SourceInventory.TransferItemTo(DestinationInventory, i_SourceItems, null, true))
-                                {
-                                    VRage.MyFixedPoint movedAmmount = lastAmmount - SourceItem.Amount;
-                                    itemIsPending = (SourceItem.Amount > 0);
-                                    EchoSort(SourceBlock, DestinationBlock, SourceItem, movedAmmount);
-                                }    
-                            } else
+                                queue.Dequeue();
+                            }
+                            else
                             {
-                                Log("is not connected", LOG_LEVEL_INFO);
+                                proceed = false;
                             }
                         }
                     }
                 }
-            } else
-            {
-                Log("Tag '" + tag + "' has no Destination.", LOG_LEVEL_INFO);
-            }
-            Log_Return("doSortItem", "void");
-        }
-
-        private List<IMyTerminalBlock> getSourceBlocks(string ignoreTag)
-        {
-            Log_FunctionCall("getSourceBlocks", new KeyValuePair<string, string>[] { new KeyValuePair<string, string>("ignoreTag", ignoreTag) });
-            List<IMyTerminalBlock> Blocks = new List<IMyTerminalBlock>();
-            GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(Blocks, (x => !x.CustomName.Contains(ignoreTag) && x.CubeGrid.Equals(Me.CubeGrid) && (!(x is IMyReactor) || !IGNORE_REACTOR)));
-
-            Log_Return("getSourceBlocks", Blocks.Count.ToString());
-            return Blocks;
-        }
-
-        private Dictionary<string, List<IMyTerminalBlock>> getDestinationBlocksMap(List<string> Tags, string ignoreTag)
-        {
-            Log_FunctionCall("getDestinationBlocksMap", new KeyValuePair<string, string>[] { new KeyValuePair<string, string>("Tags", Tags.ToString()), new KeyValuePair<string, string>("ignoreTag", ignoreTag) });
-            Dictionary<string, List<IMyTerminalBlock>> DestinationBlockList = new Dictionary<string, List<IMyTerminalBlock>>();
-            List<IMyTerminalBlock> Blocks = new List<IMyTerminalBlock>();
-            GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(Blocks, (x => (!(x is IMyReactor) || !IGNORE_REACTOR) && isDestinationBlock(x, Tags, ignoreTag)));
-            Log("Found " + Blocks.Count.ToString() + " possible Destinations.", LOG_LEVEL_INFO);
-            for(int iBlocks = 0; iBlocks < Blocks.Count; iBlocks++)
-            {
-                IMyTerminalBlock Block = Blocks[iBlocks];
-                for(int iTags = 0; iTags < Tags.Count; iTags++)
+                public override void Enqueue(string message)
                 {
-                    string tag = Tags[iTags];
-                    Log("For Tag '" + tag + "' in '" + Block.CustomName + "'", LOG_LEVEL_INFO);
-                    if (Block.CustomName.Contains(tag))
-                    {
-                        Log("Found TAG '" + tag + "' in " + Block.CustomName);
-                        if (!DestinationBlockList.ContainsKey(tag))
-                        {
-                            DestinationBlockList.Add(tag, new List<IMyTerminalBlock>());
-                            Log("new List for Tag '" + tag + "'");
-                        }
-                        if (!DestinationBlockList[tag].Contains(Block))
-                        {
-                            Log("Add '" + Block.CustomName + "' to List");
-                            DestinationBlockList[tag].Add(Block);
-                        }                         
-                    } else
-                    {
-                        Log("NO TAG '" + tag + "' in " + Block.CustomName);
-                    }
+                    queue.Enqueue(message);
                 }
             }
-
-            Log_Return("getDestinationBlocksMap", DestinationBlockList.Count.ToString());
-            return DestinationBlockList;
-        }
-        
-
-        private bool isDestinationBlock(IMyTerminalBlock Block, List<string> Tags, string ignoreTag)
-        {
-            Log_FunctionCall("isDestinationBlock", new KeyValuePair<string, string>[] { new KeyValuePair<string, string>("Block", Block.CustomName), new KeyValuePair<string, string>("ignoreTag", ignoreTag) });
-            bool result = false;
-            if (!Block.CustomName.Contains(ignoreTag))
+            public class BMyEchoAppender : BMyAppenderBase
             {
-                bool hasTag = false;
-                for (int i = 0; !hasTag && i < Tags.Count; i++)
+                private Program Assembly;
+
+                public BMyEchoAppender(Program Assembly)
                 {
-                    hasTag = hasTag || Block.CustomName.Contains(Tags[i]);
+                    this.Assembly = Assembly;
                 }
 
-                result = hasTag;
-            }
+                public override void Flush() { }
 
-            Log_Return("isDestinationBlock", result.ToString());
-            return result;
-        }
-        
-        private List<string> getTags(Dictionary<string, string> TypeMap)
-        {
-            Log_FunctionCall("getTags", new KeyValuePair<string, string>[] { new KeyValuePair<string, string>("TypeMap", TypeMap.ToString()) });
-            if (s_Tags == null)
-            {
-                s_Tags = new List<string>();
-                s_Tags.AddRange(TypeMap.Values);
-            }
-            Log_Return("getTags", s_Tags.Count.ToString());
-            return s_Tags;
-        }
-
-        private Dictionary<string, string> getTypeTagMap()
-        {
-            Log_FunctionCall("getTypeTagMap", new KeyValuePair<string, string>[] { });
-            if (s_TypeTagMap == null)
-            {
-                s_TypeTagMap = new Dictionary<string, string>();
-                s_TypeTagMap.Add("MyObjectBuilder_AmmoMagazine", "#ammo");
-                s_TypeTagMap.Add("MyObjectBuilder_Component", "#component");
-                s_TypeTagMap.Add("MyObjectBuilder_GasContainerObject", "#bottle");
-                s_TypeTagMap.Add("MyObjectBuilder_OxygenContainerObject", "#bottle");
-                s_TypeTagMap.Add("MyObjectBuilder_Ingot", "#ingot");
-                s_TypeTagMap.Add("MyObjectBuilder_Ore", "#ore");
-                s_TypeTagMap.Add("MyObjectBuilder_PhysicalGunObject", "#handtool");
-            }
-
-            Log_Return("getTypeTagMap", s_TypeTagMap.Count.ToString());
-            return s_TypeTagMap;
-        }
-
-        private string getTag(IMyInventoryItem InventoryItem, Dictionary<string, string> TypeMap)
-        {
-            Log_FunctionCall("getTag", new KeyValuePair<string, string>[] { new KeyValuePair<string, string>("InvetoryItem", InventoryItem.Content.SubtypeName), new KeyValuePair<string, string>( "TypeMap", TypeMap.ToString()) });
-            string tag;
-            string key = InventoryItem.Content.TypeId.ToString();
-            if (TypeMap.ContainsKey(key))
-            {
-                tag = TypeMap[key];
-            } else
-            {
-                tag = key;
-            }
-
-            Log_Return("getTag", tag);
-            return tag;
-        }
-
-        private void EchoSort(IMyTerminalBlock SourceBlock, IMyTerminalBlock DestinationBlock, IMyInventoryItem Item, VRage.MyFixedPoint ammount)
-        {
-            Log_FunctionCall("EchoSort", new KeyValuePair<string, string>[] { new KeyValuePair<string, string>("SourceBlock", SourceBlock.CustomName), new KeyValuePair<string, string>("DestinationBlock", DestinationBlock.CustomName), new KeyValuePair<string, string>("Item", Item.Content.SubtypeName), new KeyValuePair<string, string>("ammount", ammount.ToString()) });
-            Log(SourceBlock.CustomName + ">>(" + ammount.ToString() + "x" + Item.Content.SubtypeName + ")>>" + DestinationBlock.CustomName, LOG_LEVEL_ECHO);
-            Log_Return("EchoSort", "void");
-        }
-
-        // DEBUG/LOG STUFF 
-
-        private void bootStrapLog()
-        {
-            LogPanels = null;
-            Log_FunctionCall("bootSTrapLog", new KeyValuePair<string, string>[] { });
-            Log("Debug Settings: Debuglevel=" + LOG_LEVEL.ToString() + " DEBUGMODE='" + LOG_MODE.ToString() + "' DEBUGSCREEN='" + LOG_SCREEN + "'");
-            Log_Return("bootStrapLog", "void");
-        }
-
-        private List<IMyTextPanel> getLogPanels()
-        {
-            if(LogPanels == null)
-            {
-                List<IMyTerminalBlock> Blocks = new List<IMyTerminalBlock>();
-
-                if (LOG_SCREEN != null)
+                public override void Enqueue(string message)
                 {
-                    GridTerminalSystem.GetBlocksOfType<IMyTextPanel>(Blocks, (x => x.CustomName.Contains(LOG_SCREEN) && x.CubeGrid.Equals(Me.CubeGrid)));
-                }
-
-                LogPanels = Blocks.ConvertAll<IMyTextPanel>(( x => x as IMyTextPanel));
-                for(int i = 0; i < LogPanels.Count; i++)
-                {
-                    LogPanels[i].WritePublicText("");
-                    LogPanels[i].ShowPublicTextOnScreen();
+                    Assembly.Echo(message);
                 }
             }
-            
-            return LogPanels;
-        }
-
-        private void Log_AppendToPanels(string data)
-        {
-            List<IMyTextPanel> Panels = getLogPanels();
-            for(int i = 0; i < Panels.Count; i++)
+            public abstract class BMyAppenderBase
             {
-                Panels[i].WritePublicText(data, true);
+                public abstract void Enqueue(string message);
+                public abstract void Flush();
             }
         }
-
-        private void Log(string msg, int logLevel = LOG_LEVEL_DEBUG)
-        {
-            if (LOG && logLevel <= LOG_LEVEL)
-            {
-                string data = "[LOG:" + logLevel.ToString() + "]" + msg;
-                Echo(data);
-                Log_AppendToPanels(data + "\n");
-            }
-        }
-
-        private void Log_Return(string funcname, string value, int debugLevel = LOG_LEVEL_DEBUG)
-        {
-            if (LOG && LOG_MODE.Contains(LOG_MODE_RETURN))
-            {
-                Log("return " + funcname + " => " + value);
-            }
-        }
-
-        private void Log_FunctionCall(string funcname, KeyValuePair<string,string>[] argv, int debugLevel = LOG_LEVEL_DEBUG)
-        {
-            if (LOG && LOG_MODE.Contains(LOG_MODE_FUNCTIONCALL))
-            {
-                StringBuilder SB = new StringBuilder();
-                SB.Append(funcname);
-                SB.Append("(");
-                for(int i = 0; i < argv.Length; i++)
-                {
-                    SB.Append(argv[i].Key);
-                    SB.Append(": ");
-                    SB.Append(argv[i].Value);
-                    if(i < argv.Length - 1)
-                    {
-                        SB.Append(", ");
-                    }
-                }
-                SB.Append(");");
-                Log(SB.ToString());
-            }
-        }
-                
+        public class BaconArgs { public string Raw; static public BaconArgs parse(string a) { return (new Parser()).parseArgs(a); } static public string Escape(object a) { return string.Format("{0}", a).Replace(@"\", @"\\").Replace(@" ", @"\ ").Replace(@"""", @"\"""); } static public string UnEscape(string a) { return a.Replace(@"\""", @"""").Replace(@"\ ", @" ").Replace(@"\\", @"\"); } public class Parser { static Dictionary<string, BaconArgs> h = new Dictionary<string, BaconArgs>(); public BaconArgs parseArgs(string a) { if (!h.ContainsKey(a)) { var b = new BaconArgs(); b.Raw = a; var c = false; var d = false; var e = new StringBuilder(); for (int f = 0; f < a.Length; f++) { var g = a[f]; if (c) { e.Append(g); c = false; } else if (g.Equals('\\')) c = true; else if (d && !g.Equals('"')) e.Append(g); else if (g.Equals('"')) d = !d; else if (g.Equals(' ')) if (e.ToString().Equals("--")) { b.add(a.Substring(f).TrimStart()); e.Clear(); break; } else { b.add(e.ToString()); e.Clear(); } else e.Append(g); } if (e.Length > 0) b.add(e.ToString()); h.Add(a, b); } return h[a]; } } protected Dictionary<char, int> h = new Dictionary<char, int>(); protected List<string> i = new List<string>(); protected Dictionary<string, List<string>> j = new Dictionary<string, List<string>>(); public List<string> getArguments() { return i; } public int getFlag(char a) { return h.ContainsKey(a) ? h[a] : 0; } public bool hasArguments() { return i.Count > 0; } public bool hasOption(string a) { return j.ContainsKey(a); } public List<string> getOption(string a) { return j.ContainsKey(a) ? j[a] : new List<string>(); } public void add(string a) { if (a.Trim().Length > 0) if (!a.StartsWith("-")) { i.Add(a); } else if (a.StartsWith("--")) { KeyValuePair<string, string> b = k(a); string c = b.Key.Substring(2); if (!j.ContainsKey(c)) { j.Add(c, new List<string>()); } j[c].Add(b.Value); } else { string b = a.Substring(1); for (int d = 0; d < b.Length; d++) { if (this.h.ContainsKey(b[d])) { this.h[b[d]]++; } else { this.h.Add(b[d], 1); } } } } KeyValuePair<string, string> k(string a) { string[] b = a.Split(new char[] { '=' }, 2); return new KeyValuePair<string, string>(b[0], (b.Length > 1) ? b[1] : null); } public string ToArguments() { var a = new List<string>(); foreach (string argument in this.getArguments()) a.Add(Escape(argument)); foreach (KeyValuePair<string, List<string>> option in this.j) { var b = "--" + Escape(option.Key); foreach (string optVal in option.Value) a.Add(b + ((optVal != null) ? "=" + Escape(optVal) : "")); } var c = (h.Count > 0) ? "-" : ""; foreach (KeyValuePair<char, int> flag in h) c += new String(flag.Key, flag.Value); a.Add(c); return String.Join(" ", a.ToArray()); } override public string ToString() { var a = new List<string>(); foreach (string key in j.Keys) a.Add(l(key) + ":[" + string.Join(",", j[key].ConvertAll<string>(b => l(b)).ToArray()) + "]"); var c = new List<string>(); foreach (char key in h.Keys) c.Add(key + ":" + h[key].ToString()); var d = new StringBuilder(); d.Append("{\"a\":["); d.Append(string.Join(",", i.ConvertAll<string>(b => l(b)).ToArray())); d.Append("],\"o\":[{"); d.Append(string.Join("},{", a)); d.Append("}],\"f\":[{"); d.Append(string.Join("},{", c)); d.Append("}]}"); return d.ToString(); } string l(string a) { return (a != null) ? "\"" + a.Replace(@"\", @"\\").Replace(@"""", @"\""") + "\"" : @"null"; } }
+        #endregion includes
         #endregion End of  Game Code - Copy/Paste Code from this region into Block Script Window in Game
     }
 }
