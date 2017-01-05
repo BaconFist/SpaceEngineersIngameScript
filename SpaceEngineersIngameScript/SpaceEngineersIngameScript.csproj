@@ -34,6 +34,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Scripts\BaconDrawDEV.cs" />
+    <Compile Include="Scripts\BaconDrawV2.cs" />
     <Compile Include="Scripts\BaconsWingmanDrone.cs" />
     <Compile Include="Scripts\BD_Refactor.cs" />
     <Compile Include="Scripts\DoorInterlock.cs" />

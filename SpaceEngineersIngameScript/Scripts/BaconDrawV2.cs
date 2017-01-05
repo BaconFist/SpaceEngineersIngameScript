@@ -12,17 +12,28 @@ using VRage.Game.ObjectBuilders.Definitions; // VRage.Game.dll
 using VRage.Game.ModAPI.Ingame; // VRage.Game.dll
 using SpaceEngineers.Game.ModAPI.Ingame; // SpacenEngineers.Game.dll
 
-namespace BaconDrawDEV
+namespace BaconDrawV2
 {
     public class Program : MyGridProgram
     {
         #region Game Code - Copy/Paste Code from this region into Block Script Window in Game
-        BMyBaconDraw BaconDraw;
+
+        /**
+        BaconDrawV2
+        ==============
+        Copyright 2016 Thomas Klose <thomas@bratler.net>
+        License: https://github.com/BaconFist/SpaceEngineersIngameScript/blob/master/LICENSE
+
+        Description
+        ===========
+
+        */
 
         public Program()
         {
             BaconDraw = new BMyBaconDraw();
         }
+
         public void Main(string argument)
         {
             BMyBaconDraw.BMyEnvironment Env = new BMyBaconDraw.BMyEnvironment(this, argument);
@@ -42,80 +53,12 @@ namespace BaconDrawDEV
             }
         }
 
+        BMyBaconDraw BaconDraw;
+              
         class BMyBaconDraw
         {
             public BMyEnvironment Env;
-            private Dictionary<long, BMyTextPanelState> PanelStates = new Dictionary<long, BMyTextPanelState>();
 
-            private List<IMyTextPanel> findTextPanels()
-            {
-                Env.Log?.PushStack("findTextPanels");
-                List<IMyTextPanel> Matches = new List<IMyTextPanel>();
-                foreach (string tag in Env.ArgBag.getArguments())
-                {
-                    Matches.AddRange(findTextPanelsByTag(tag));
-                }
-                Env.Log?.If(BMyLog4PB.E_DEBUG)?.Debug("found {0} TextPanels for Tags {1}", Matches.Count, string.Join(",", Env.ArgBag.getArguments().ToArray()));
-                Env.Log?.PopStack();
-                return Matches;
-            }
-            private List<IMyTextPanel> findTextPanelsByTag(string tag)
-            {
-                Env.Log?.PushStack("findTextPanelsByTag");
-                List<IMyTextPanel> Matches = new List<IMyTextPanel>();
-                Env.Assembly.GridTerminalSystem.GetBlocksOfType<IMyTextPanel>(
-                    Matches,
-                    (b => b.CubeGrid.Equals(Env.Assembly.Me.CubeGrid) && b.CustomName.Contains(tag))
-                );
-                Env.Log?.Info("found {0} TextPanels for {1}", Matches.Count, tag);
-                Env.Log?.If(BMyLog4PB.E_DEBUG)?.Debug("Matches: {0}", string.Join(", ", Matches.ConvertAll<string>(x => x.CustomName).ToArray()));
-                Env.Log?.PopStack();
-                return Matches;
-            }
-            class BMyTextPanelState : Queue<string>
-            {
-                private readonly BMyEnvironment Env;
-                private IMyTextPanel TextPanel;
-                private long _hash = 0;
-                public long Hash { get { return _hash; } }
-                public BaconArgs ArgBag;
-
-                public BMyTextPanelState(IMyTextPanel Panel, BMyEnvironment Env)
-                {
-                    this.Env = Env;
-                    this.TextPanel = Panel;
-                    reset();
-                }
-
-                public void reset()
-                {
-                    Env.Log?.PushStack("reset");
-                    ArgBag = BaconArgs.parse(TextPanel.GetPublicTitle());
-                    Env.Log?.Trace(@"parsed args: {0}", ArgBag.Raw);
-
-                    this.Clear();
-                    _hash = getCurrentHash();
-                    foreach (string codeLine in TextPanel.CustomData.Split(new Char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries))
-                    {
-                        this.Enqueue(codeLine);
-                    }
-                    Env.Log?.If(BMyLog4PB.E_INFO)?.Info(@"Reset Panel ""{0}"" with {1} lines of code.", TextPanel.CustomName, this.Count);
-                    Env.Log?.PopStack();
-                }
-                private long getCurrentHash()
-                {
-                    Env.Log?.PushStack("getCurrentHash");
-                    long buff = string.Format(
-                        @"{0}{1}{2}",
-                        TextPanel.GetPublicTitle(),
-                        TextPanel.CustomData,
-                        TextPanel.GetValueFloat("FontSize")
-                    ).GetHashCode();
-                    Env.Log?.Debug(@"hash for ""{0}"" > {1}", TextPanel.CustomName, buff);
-                    Env.Log?.PopStack();
-                    return buff;
-                }
-            }
             public class BMyEnvironment
             {
                 public readonly Program Assembly;
@@ -244,6 +187,7 @@ namespace BaconDrawDEV
                 }
             }
         }
+
 
         #region libraries
         public class BMyLog4PB { public const byte E_ALL = 63; public const byte E_TRACE = 32; public const byte E_DEBUG = 16; public const byte E_INFO = 8; public const byte E_WARN = 4; public const byte E_ERROR = 2; public const byte E_FATAL = 1; Dictionary<string, string> i = new Dictionary<string, string>() { { "{Date}", "{0}" }, { "{Time}", "{1}" }, { "{Milliseconds}", "{2}" }, { "{Severity}", "{3}" }, { "{CurrentInstructionCount}", "{4}" }, { "{MaxInstructionCount}", "{5}" }, { "{Message}", "{6}" }, { "{Stack}", "{7}" } }; Stack<string> j = new Stack<string>(); public byte Filter; public readonly Dictionary<BMyAppenderBase, string> Appenders = new Dictionary<BMyAppenderBase, string>(); string k = @"[{0}-{1}/{2}][{3}][{4}/{5}][{7}] {6}"; string l = @"[{Date}-{Time}/{Milliseconds}][{Severity}][{CurrentInstructionCount}/{MaxInstructionCount}][{Stack}] {Message}"; public string Format { get { return l; } set { k = n(value); l = value; } } readonly Program m; public bool AutoFlush = true; public BMyLog4PB(Program a) : this(a, E_FATAL | E_ERROR | E_WARN | E_INFO, new BMyEchoAppender(a)) { } public BMyLog4PB(Program a, byte b, params BMyAppenderBase[] c) { Filter = b; this.m = a; foreach (var Appender in c) AddAppender(Appender); } string n(string a) { var b = a; foreach (var item in i) b = b.Replace(item.Key, item.Value); return b; } public BMyLog4PB Flush() { foreach (var AppenderItem in Appenders) AppenderItem.Key.Flush(); return this; } public BMyLog4PB PushStack(string a) { j.Push(a); return this; } public string PopStack() { return (j.Count > 0) ? j.Pop() : null; } string o() { return (j.Count > 0) ? j.Peek() : null; } public string StackToString() { if (If(E_TRACE) != null) { string[] a = j.ToArray(); Array.Reverse(a); return string.Join(@"/", a); } else return o(); } public BMyLog4PB AddAppender(BMyAppenderBase a, string b = null) { if (!Appenders.ContainsKey(a)) Appenders.Add(a, n(b)); return this; } public BMyLog4PB If(byte a) { return ((a & Filter) != 0) ? this : null; } public BMyLog4PB Fatal(string a, params object[] b) { If(E_FATAL).p("FATAL", a, b); return this; } public BMyLog4PB Error(string a, params object[] b) { If(E_ERROR).p("ERROR", a, b); return this; } public BMyLog4PB Warn(string a, params object[] b) { If(E_WARN).p("WARN", a, b); return this; } public BMyLog4PB Info(string a, params object[] b) { If(E_INFO).p("INFO", a, b); return this; } public BMyLog4PB Debug(string a, params object[] b) { If(E_DEBUG).p("DEBUG", a, b); return this; } public BMyLog4PB Trace(string a, params object[] b) { If(E_TRACE).p("TRACE", a, b); return this; } void p(string a, string b, params object[] c) { DateTime d = DateTime.Now; q e = new q(d.ToShortDateString(), d.ToLongTimeString(), d.Millisecond.ToString(), a, m.Runtime.CurrentInstructionCount, m.Runtime.MaxInstructionCount, string.Format(b, c), StackToString()); foreach (var item in Appenders) { var f = (item.Value != null) ? item.Value : k; item.Key.Enqueue(e.ToString(f)); if (AutoFlush) item.Key.Flush(); } } class q { public string Date; public string Time; public string Milliseconds; public string Severity; public int CurrentInstructionCount; public int MaxInstructionCount; public string Message; public string Stack; public q(string a, string b, string c, string d, int e, int f, string g, string h) { this.Date = a; this.Time = b; this.Milliseconds = c; this.Severity = d; this.CurrentInstructionCount = e; this.MaxInstructionCount = f; this.Message = g; this.Stack = h; } public override string ToString() { return ToString(@"{0},{1},{2},{3},{4},{5},{6},{7},{8}"); } public string ToString(string a) { return string.Format(a, Date, Time, Milliseconds, Severity, CurrentInstructionCount, MaxInstructionCount, Message, Stack); } } public class BMyTextPanelAppender : BMyAppenderBase { List<string> i = new List<string>(); List<IMyTextPanel> j = new List<IMyTextPanel>(); public bool Autoscroll = true; public bool Prepend = false; public BMyTextPanelAppender(string a, Program b) { b.GridTerminalSystem.GetBlocksOfType<IMyTextPanel>(j, (c => c.CustomName.Contains(a))); } public override void Enqueue(string a) { i.Add(a); } public override void Flush() { foreach (var Panel in j) { k(Panel); Panel.ShowTextureOnScreen(); Panel.ShowPublicTextOnScreen(); } i.Clear(); } void k(IMyTextPanel a) { if (Autoscroll) { var b = new List<string>(a.GetPublicText().Split(new char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)); b.AddRange(i); int c = Math.Min(l(a), b.Count); if (Prepend) b.Reverse(); a.WritePublicText(string.Join("\n", b.GetRange(b.Count - c, c).ToArray()), false); } else if (Prepend) { var b = new List<string>(a.GetPublicText().Split(new char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)); b.AddRange(i); b.Reverse(); a.WritePublicText(string.Join("\n", b.ToArray()), false); } else { a.WritePublicText(string.Join("\n", i.ToArray()), true); } } int l(IMyTextPanel a) { float b = a.GetValueFloat("FontSize"); if (b == 0.0f) b = 0.01f; return Convert.ToInt32(Math.Ceiling(17.0f / b)); } } public class BMyKryptDebugSrvAppender : BMyAppenderBase { IMyProgrammableBlock i; Queue<string> j = new Queue<string>(); public BMyKryptDebugSrvAppender(Program a) { i = a.GridTerminalSystem.GetBlockWithName("DebugSrv") as IMyProgrammableBlock; } public override void Flush() { if (i != null) { var a = true; while (a && j.Count > 0) if (i.TryRun("L" + j.Peek())) { j.Dequeue(); } else { a = false; } } } public override void Enqueue(string a) { j.Enqueue(a); } } public class BMyEchoAppender : BMyAppenderBase { Program i; public BMyEchoAppender(Program a) { this.i = a; } public override void Flush() { } public override void Enqueue(string a) { i.Echo(a); } } public abstract class BMyAppenderBase { public abstract void Enqueue(string a); public abstract void Flush(); } }
