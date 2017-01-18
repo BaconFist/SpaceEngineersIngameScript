@@ -55,6 +55,7 @@
     <Compile Include="Scripts\BaconSort.cs" />
     <Compile Include="Scripts\Snippet_BaconArgs.cs" />
     <Compile Include="Scripts\Snippet_BaconDebug.cs" />
+    <Compile Include="Scripts\Snippet_CustomDataManager.cs" />
     <Compile Include="Scripts\Snippet_DetailedInfo.cs" />
     <Compile Include="Template\IngameScript.cs" />
   </ItemGroup>
