@@ -319,6 +319,24 @@ namespace Log4PB
                     Assembly.Echo(message);
                 }
             }
+            public class BMyCustomDataAppender : BMyAppenderBase
+            {
+                Program Assembly;
+                public BMyCustomDataAppender(Program Assembly)
+                {
+                    this.Assembly = Assembly;
+                    this.Assembly.Me.CustomData = "";
+                }
+                public override void Enqueue(string message)
+                {
+                    Assembly.Me.CustomData = Assembly.Me.CustomData + '\n' + message;
+                }
+                public override void Flush()
+                {
+
+                }                
+            }
+
             public abstract class BMyAppenderBase
             {
                 public abstract void Enqueue(string message);
