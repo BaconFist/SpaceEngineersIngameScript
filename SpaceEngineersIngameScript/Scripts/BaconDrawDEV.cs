@@ -17,241 +17,988 @@ namespace BaconDrawDEV
     public class Program : MyGridProgram
     {
         #region Game Code - Copy/Paste Code from this region into Block Script Window in Game
-        BMyBaconDraw BaconDraw;
-
-        public Program()
-        {
-            BaconDraw = new BMyBaconDraw();
-        }
 
         public void Main(string argument)
         {
-            BMyBaconDraw.BMyEnvironment Env = new BMyBaconDraw.BMyEnvironment(this, argument);
-            try
+            Echo("## START ##");
+            IMyTextPanel LCD = GridTerminalSystem.GetBlockWithName(argument) as IMyTextPanel;
+            if(LCD != null)
             {
-                Env.Log?.PushStack("Main");
-                BaconDraw.Env = Env;
-                Env.Log?.Debug("environment initialized");
-
-                //like doing stuff
-            }
-            catch (Exception e)
+                string[] code = LCD.CustomData.Split(new char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+                BMyBaconDraw BD = new BMyBaconDraw();
+                BMyBaconDraw.BMyCanvas canvas = BD.run(code, this);
+                LCD.WritePublicText(canvas.ToString());
+                LCD.ShowPublicTextOnScreen();
+            } else
             {
-                Env.Log?.Fatal(e.Message);
+                Echo("-- LCD not found --");
             }
-            finally
-            {
-                Env.Log?.Flush();
-            }
+            Echo("## END ##");
         }
 
         class BMyBaconDraw
         {
-            public BMyEnvironment Env;
-            private Dictionary<long, BMyTextPanelState> PanelStates = new Dictionary<long, BMyTextPanelState>();
 
-            private List<IMyTextPanel> findTextPanels()
+            public BMyCanvas run(string[] source, Program Assembly)
             {
-                Env.Log?.PushStack("findTextPanels");
-                List<IMyTextPanel> Matches = new List<IMyTextPanel>();
-                foreach (string tag in Env.ArgBag.getArguments())
+                #region Environment
+                BMyEnvironment Env = new BMyEnvironment(Assembly);
+                Env.Log?.PushStack("run(string[] source, Program Assembly)");
+                #endregion Environment
+
+                #region build plugins
+                // prepare pluginhandlers
+                Env.Log?.Debug("START - Preparing Plugins");
+                Env.DrawPlugins.AddPlugin(new BMyDrawPlugin_Background()); // "background R,G,B" where R G B is 0-6
+                Env.DrawPlugins.AddPlugin(new BMyDrawPlugin_Circle()); // "circle RADIUS" where RADIUS is integer
+                Env.DrawPlugins.AddPlugin(new BMyDrawPlugin_LineTo()); // "lineto x,y" where x y is integer
+                Env.DrawPlugins.AddPlugin(new BMyDrawPlugin_MoveTo()); // "moveto x,y" where x y is integer
+                Env.DrawPlugins.AddPlugin(new BMyDrawPlugin_Rect()); // "rect x,y" where x y is integer
+                Env.DrawPlugins.AddPlugin(new BMyDrawPlugin_Polygon()); // "poly x,y x,y x,y" where x y is integer
+                Env.DrawPlugins.AddPlugin(new BMyDrawPlugin_Color()); // "color R,G,B" where R G B is 0-6
+                foreach (KeyValuePair<string, List<BMyDrawPlugin>> _pluginlist in Env.DrawPlugins)
                 {
-                    Matches.AddRange(findTextPanelsByTag(tag));
+                    Env.Log?.Debug(@"{0} Plugins for {1}", _pluginlist.Value.Count, _pluginlist.Key);
                 }
-                Env.Log?.If(BMyLog4PB.E_DEBUG)?.Debug("found {0} TextPanels for Tags {1}", Matches.Count, string.Join(",", Env.ArgBag.getArguments().ToArray()));
-                Env.Log?.PopStack();
-                return Matches;
-            }
-            private List<IMyTextPanel> findTextPanelsByTag(string tag)
-            {
-                Env.Log?.PushStack("findTextPanelsByTag");
-                List<IMyTextPanel> Matches = new List<IMyTextPanel>();
-                Env.Assembly.GridTerminalSystem.GetBlocksOfType<IMyTextPanel>(
-                    Matches,
-                    (b => b.CubeGrid.Equals(Env.Assembly.Me.CubeGrid) && b.CustomName.Contains(tag))
-                );
-                Env.Log?.Info("found {0} TextPanels for {1}", Matches.Count, tag);
-                Env.Log?.If(BMyLog4PB.E_DEBUG)?.Debug("Matches: {0}", string.Join(", ", Matches.ConvertAll<string>(x => x.CustomName).ToArray()));
-                Env.Log?.PopStack();
-                return Matches;
-            }
-            class BMyTextPanelState : Queue<string>
-            {
-                private readonly BMyEnvironment Env;
-                private IMyTextPanel TextPanel;
-                private long _hash = 0;
-                public long Hash { get { return _hash; } }
-                public BaconArgs ArgBag;
+                Env.Log?.Debug("END - Preparing Plugins");
+                #endregion build plugins
 
-                public BMyTextPanelState(IMyTextPanel Panel, BMyEnvironment Env)
+                #region build code queue
+                Env.Log?.Debug("START - Building Code queue");
+                Queue<BMyDrawingCommand> codeQueue = new Queue<BMyDrawingCommand>();
+                Env.Log?.Debug("code has {0} lines", source.Length);
+                foreach (string currentLine in source)
+                {
+                    Env.Log?.Debug("enqueue command: {0}", currentLine);
+                    codeQueue.Enqueue(new BMyDrawingCommand(currentLine));
+                }
+                Env.Log?.Debug("END - Building Code queue");
+                #endregion build code queue
+
+                #region make canvas
+                BMyCanvas canvas = new BMyCanvas(50, 50, new BMyColor(0, 0, 0));
+                Env.Log?.Debug("created canvas. {0}x{1}", canvas.Width, canvas.Height);
+                #endregion make canvas
+
+                #region progress codeQueue
+                Env.Log?.Debug("START - progressing code");
+                while (codeQueue.Count > 0)
+                {
+                    // break if over limits
+                    BMyDrawingCommand command = codeQueue.Dequeue();
+                    if (Env.TryRunDraw(command, canvas))
+                    {
+                        Env.Log?.Debug("OK: command \"{0}\"", command);
+                    }
+                    else
+                    {
+                        Env.Log?.Debug("FAIL: command \"{0}\"", command);
+                    }
+                }
+                Env.Log?.Debug("END - progressing code");
+
+                Env.Log?.PopStack();
+                return canvas;
+                #endregion progress codeQueue
+            }
+
+            #region pluginsystem
+            class BMyPluginBag<T> : Dictionary<string, List<T>> where T : BMYPlugin
+            {
+                public readonly BMyEnvironment Env;
+
+                public BMyPluginBag(BMyEnvironment Env)
                 {
                     this.Env = Env;
-                    this.TextPanel = Panel;
-                    reset();
                 }
 
-                public void reset()
-                {
-                    Env.Log?.PushStack("reset");
-                    ArgBag = BaconArgs.parse(TextPanel.GetPublicTitle());
-                    Env.Log?.Trace(@"parsed args: {0}", ArgBag.Raw);
 
-                    this.Clear();
-                    _hash = getCurrentHash();
-                    foreach (string codeLine in TextPanel.CustomData.Split(new Char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries))
+                public void AddPlugin(T Plugin)
+                {
+                    Env.Log?.PushStack("BMyPluginBag<T>.AddPlugin(T Plugin)");
+                    if (!ContainsKey(Plugin.Name))
                     {
-                        this.Enqueue(codeLine);
+                        Env.Log?.Debug("new List for Plugin<T> {0}", Plugin);
+                        Add(Plugin.Name, new List<T>());
                     }
-                    Env.Log?.If(BMyLog4PB.E_INFO)?.Info(@"Reset Panel ""{0}"" with {1} lines of code.", TextPanel.CustomName, this.Count);
+                    this[Plugin.Name].Add(Plugin);
                     Env.Log?.PopStack();
                 }
-                private long getCurrentHash()
+
+                public List<T> FindAllByName(string name)
                 {
-                    Env.Log?.PushStack("getCurrentHash");
-                    long buff = string.Format(
-                        @"{0}{1}{2}",
-                        TextPanel.GetPublicTitle(),
-                        TextPanel.CustomData,
-                        TextPanel.GetValueFloat("FontSize")
-                    ).GetHashCode();
-                    Env.Log?.Debug(@"hash for ""{0}"" > {1}", TextPanel.CustomName, buff);
+                    Env.Log?.PushStack("BMyPluginBag<T>.FindAllByName(string name)");
+                    List<T> buffer = new List<T>();
+                    if (ContainsKey(name))
+                    {
+                        buffer = this[name];
+                        
+                    }
+                    Env.Log?.Debug("found {0} plugins for \"{1}\"", buffer.Count, name);
                     Env.Log?.PopStack();
-                    return buff;
+                    return buffer;
                 }
             }
-            public class BMyEnvironment
+
+            abstract class BMYPlugin
             {
+                abstract public string Name { get; }
+                abstract public string Vendor { get; }
+            }
+
+            abstract class BMyDrawPlugin : BMYPlugin
+            {
+                abstract public bool TryRun(BMyDrawingCommand command, BMyCanvas canvas, BMyEnvironment Env);
+            }
+            #endregion pluginsystem
+
+            #region draw plugins
+            class BMyDrawPlugin_Background : BMyDrawPlugin
+            {
+                public override string Name
+                {
+                    get
+                    {
+                        return "background";
+                    }
+                }
+
+                public override string Vendor
+                {
+                    get
+                    {
+                        return "DasBaconfist";
+                    }
+                }
+
+
+                public override bool TryRun(BMyDrawingCommand command, BMyCanvas canvas, BMyEnvironment Env)
+                {
+                    byte r;
+                    byte g;
+                    byte b;
+                    string[] argv = command.Args.Split(new char[] { ',' });
+
+                    if (argv.Length == 3
+                        && byte.TryParse(argv[0], out r)
+                        && byte.TryParse(argv[1], out g)
+                        && byte.TryParse(argv[2], out b)
+                    )
+                    {
+                        canvas = new BMyCanvas(canvas.Width, canvas.Height, new BMyColor(r, g, b));
+                        return true;
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+            }
+            class BMyDrawPlugin_MoveTo : BMyDrawPlugin
+            {
+                public override string Name
+                {
+                    get
+                    {
+                        return "moveto";
+                    }
+                }
+
+                public override string Vendor
+                {
+                    get
+                    {
+                        return "DasBaconfist";
+                    }
+                }
+
+                public override bool TryRun(BMyDrawingCommand command, BMyCanvas canvas, BMyEnvironment Env)
+                {
+                    string[] argv = command.Args.Split(new char[] { ',' });
+                    int x;
+                    int y;
+                    if (
+                        argv.Length == 2
+                        && int.TryParse(argv[0], out x)
+                        && int.TryParse(argv[1], out y)
+                        )
+                    {
+                        canvas.Position = new BMyPoint(x, y);
+                        return (canvas.Position.X == x && canvas.Position.Y == y);
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+            }
+            class BMyDrawPlugin_LineTo : BMyDrawPlugin
+            {
+                public override string Name
+                {
+                    get
+                    {
+                        return "lineto";
+                    }
+                }
+
+                public override string Vendor
+                {
+                    get
+                    {
+                        return "DasBaconfist";
+                    }
+                }
+
+                public override bool TryRun(BMyDrawingCommand command, BMyCanvas canvas, BMyEnvironment Env)
+                {
+                    string[] argv = command.Args.Split(new char[] { ',' });
+                    int x;
+                    int y;
+                    if (
+                        argv.Length == 2
+                        && int.TryParse(argv[0], out x)
+                        && int.TryParse(argv[1], out y)
+                        )
+                    {
+                        BMyPoint target = new BMyPoint(x, y);
+                        lineTo(target, canvas);
+                        return true;
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+
+                private void lineTo(BMyPoint target, BMyCanvas canvas)
+                {
+                    int x, y, t, deltaX, deltaY, incrementX, incrementY, pdx, pdy, ddx, ddy, es, el, err;
+                    BMyPoint origin = canvas.Position;
+                    deltaX = target.X - origin.X;
+                    deltaY = target.Y - origin.Y;
+
+                    incrementX = Math.Sign(deltaX);
+                    incrementY = Math.Sign(deltaY);
+                    if (deltaX < 0) deltaX = -deltaX;
+                    if (deltaY < 0) deltaY = -deltaY;
+
+                    if (deltaX > deltaY)
+                    {
+                        pdx = incrementX; pdy = 0;
+                        ddx = incrementX; ddy = incrementY;
+                        es = deltaY; el = deltaX;
+                    }
+                    else
+                    {
+                        pdx = 0; pdy = incrementY;
+                        ddx = incrementX; ddy = incrementY;
+                        es = deltaX; el = deltaY;
+                    }
+                    x = origin.X;
+                    y = origin.Y;
+                    err = el / 2;
+                    canvas.TrySetPixel(x, y);
+
+                    for (t = 0; t < el; ++t)
+                    {
+                        err -= es;
+                        if (err < 0)
+                        {
+                            err += el;
+                            x += ddx;
+                            y += ddy;
+                        }
+                        else
+                        {
+                            x += pdx;
+                            y += pdy;
+                        }
+                        canvas.TrySetPixel(x, y);
+                    }
+                }
+            }
+            class BMyDrawPlugin_Circle : BMyDrawPlugin
+            {
+                public override string Name
+                {
+                    get
+                    {
+                        return "circle";
+                    }
+                }
+
+                public override string Vendor
+                {
+                    get
+                    {
+                        return "DasBaconfist";
+                    }
+                }
+
+                public override bool TryRun(BMyDrawingCommand command, BMyCanvas canvas, BMyEnvironment Env)
+                {
+                    int r;
+                    if (int.TryParse(command.Args, out r))
+                    {
+                        circle(r, canvas);
+                        return true;
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+
+                public void circle(int r, BMyCanvas canvas)
+                {
+                    int d;
+                    int x = r;
+                    d = r * -1;
+                    for (int y = 0; y <= x; y++)
+                    {
+                        setSymetric(x, y, canvas);
+                        d = d + 2 * y + 1;
+                        if (d > 0)
+                        {
+                            d = d - 2 * x + 2;
+                            x = x - 1;
+                        }
+                    }
+                }
+
+                private void setSymetric(int x, int y, BMyCanvas canvas)
+                {
+                    BMyPoint o = canvas.Position;
+
+                    canvas.TrySetPixel(o.X + x, o.Y + y, false);
+                    canvas.TrySetPixel(o.X + y, o.Y + x, false);
+                    canvas.TrySetPixel(o.X + y, o.Y + -x, false);
+                    canvas.TrySetPixel(o.X + x, o.Y + -y, false);
+                    canvas.TrySetPixel(o.X + -x, o.Y + -y, false);
+                    canvas.TrySetPixel(o.X + -y, o.Y + -x, false);
+                    canvas.TrySetPixel(o.X + -y, o.Y + x, false);
+                    canvas.TrySetPixel(o.X + -x, o.Y + y, false);
+                }
+            }
+            class BMyDrawPlugin_Rect : BMyDrawPlugin
+            {
+                public override string Name
+                {
+                    get
+                    {
+                        return "rect";
+                    }
+                }
+
+                public override string Vendor
+                {
+                    get
+                    {
+                        return "DasBaconfist";
+                    }
+                }
+
+                public override bool TryRun(BMyDrawingCommand command, BMyCanvas canvas, BMyEnvironment Env)
+                {
+                    string[] argv = command.Args.Split(new char[] { ',' });
+                    int x;
+                    int y;
+                    if (
+                        argv.Length == 2
+                        && int.TryParse(argv[0], out x)
+                        && int.TryParse(argv[1], out y)
+                        )
+                    {
+                        bool success = false;
+                        BMyPoint origin = canvas.Position;
+                        BMyDrawingCommand linetoCommand = new BMyDrawingCommand(string.Format(@"lineto {0},{1}", x, origin.Y));
+                        if (Env.TryRunDraw(linetoCommand, canvas))
+                        {
+                            linetoCommand = new BMyDrawingCommand(string.Format(@"lineto {0},{1}", x, y));
+                            if (Env.TryRunDraw(linetoCommand, canvas))
+                            {
+                                linetoCommand = new BMyDrawingCommand(string.Format(@"lineto {0},{1}", origin.X, y));
+                                if (Env.TryRunDraw(linetoCommand, canvas))
+                                {
+                                    linetoCommand = new BMyDrawingCommand(string.Format(@"lineto {0},{1}", origin.X, origin.Y));
+                                    if (Env.TryRunDraw(linetoCommand, canvas))
+                                    {
+                                        success = true;
+                                    }
+                                }
+                            }
+                        }
+
+                        canvas.Position = new BMyPoint(x, y);
+                        return success;
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+            }
+            class BMyDrawPlugin_Polygon : BMyDrawPlugin
+            {
+                public override string Name
+                {
+                    get
+                    {
+                        return "poly";
+                    }
+                }
+
+                public override string Vendor
+                {
+                    get
+                    {
+                        return "DasBaconfist";
+                    }
+                }
+
+                public override bool TryRun(BMyDrawingCommand command, BMyCanvas canvas, BMyEnvironment Env)
+                {
+                    bool success = false;
+                    string[] argv = command.Args.Split(new char[] { ' ' });
+                    foreach (string arg in argv)
+                    {
+                        string[] _pos = arg.Split(new char[] { ',' }, 2);
+                        int x;
+                        int y;
+                        if (_pos.Length == 2
+                            && int.TryParse(_pos[0], out x)
+                            && int.TryParse(_pos[1], out y)
+                            )
+                        {
+                            success = success && Env.TryRunDraw(new BMyDrawingCommand(string.Format(@"lineto {0},{1}", x, y)), canvas);
+                        }
+                        else
+                        {
+                            return false;
+                        }
+                    }
+                    return success;
+                }
+            }
+            class BMyDrawPlugin_Color : BMyDrawPlugin
+            {
+                public override string Name
+                {
+                    get
+                    {
+                        return "color";
+                    }
+                }
+
+                public override string Vendor
+                {
+                    get
+                    {
+                        return "DasBaconfist";
+                    }
+                }
+
+                public override bool TryRun(BMyDrawingCommand command, BMyCanvas canvas, BMyEnvironment Env)
+                {
+                    byte r;
+                    byte g;
+                    byte b;
+                    string[] argv = command.Args.Split(new char[] { ',' });
+
+                    if (argv.Length == 3
+                        && byte.TryParse(argv[0], out r)
+                        && byte.TryParse(argv[1], out g)
+                        && byte.TryParse(argv[2], out b)
+                    )
+                    {
+                        canvas.color = new BMyColor(r, g, b);
+                        return true;
+                    }
+                    return false;
+                }
+            }
+            #endregion draw plugins
+
+            class BMyEnvironment
+            {
+                public readonly BMyPluginBag<BMyDrawPlugin> DrawPlugins;
                 public readonly Program Assembly;
                 public readonly BMyLog4PB Log;
-                public readonly BaconArgs ArgBag;
 
-                public BMyEnvironment(Program Assembly, string arguments)
+                public BMyEnvironment(Program Assembly)
                 {
                     this.Assembly = Assembly;
-                    ArgBag = BaconArgs.parse(arguments);
-                    Log = BMyLoggerFactory.getLogger(ArgBag, Assembly);
+                    Log = new BMyLog4PB(Assembly, BMyLog4PB.E_ALL, new BMyLog4PB.BMyCustomDataAppender(Assembly));
+                    DrawPlugins = new BMyPluginBag<BMyDrawPlugin>(this);
+                    Log.Debug("Environment initialized.");
                 }
-            }
-            class BMyLoggerFactory
-            {
-                const char FLAG_VERBOSITY = 'v';
-                static public BMyLog4PB getLogger(BaconArgs ArgBag, Program Assembly)
+
+                public bool TryRunDraw(BMyDrawingCommand command, BMyCanvas canvas)
                 {
-                    byte filter = getVerbosityFilter(ArgBag);
-                    if (filter == 0)
+                    Log?.PushStack("BMyEnvironment.TryRunDraw(BMyDrawingCommand command, BMyCanvas canvas)");
+                    List<BMyDrawPlugin> DrawPluginsForCommand = DrawPlugins.FindAllByName(command.Key);
+                    Log?.Debug("found {0} commands for {1}", DrawPluginsForCommand.Count, command.Key);
+                    bool successfull = false;
+                    if (DrawPluginsForCommand.Count > 0)
                     {
-                        return null;
+                        for (int i = 0; i < DrawPluginsForCommand.Count && !successfull; i++)
+                        {
+                            successfull = DrawPluginsForCommand[i].TryRun(command, canvas, this);
+                            Log?.Debug("{0}: Plugin {1}/{2} with \"{3}\"", successfull?"OK":"FAIL", DrawPluginsForCommand[i].Vendor, DrawPluginsForCommand[i].Name, command);
+                        }
                     }
-                    string tag = ArgBag.hasOption(BMyArgParams.LOG_TAG) ? ArgBag.getOption(BMyArgParams.LOG_TAG)[0] : BMyArgParams.LOG_TAG_DEFAULT;
-                    BMyLog4PB Logger = new BMyLog4PB(
-                        Assembly,
-                        filter,
-                        new BMyLog4PB.BMyEchoAppender(Assembly),
-                        new BMyLog4PB.BMyKryptDebugSrvAppender(Assembly),
-                        new BMyLog4PB.BMyTextPanelAppender(
-                            tag,
-                            Assembly
-                        )
-                    );
-                    if (ArgBag.hasOption(BMyArgParams.LOG_FORMAT))
-                    {
-                        Logger.Format = ArgBag.getOption(BMyArgParams.LOG_FORMAT)[0];
-                    }
-                    Logger.AutoFlush = false;
-                    Logger.If(BMyLog4PB.E_DEBUG)?.Debug("Log initialized. Tag: {0}, Format: {1}", tag, Logger.Format);
-                    return Logger;
+                    Log?.Debug("{0}: Drawing of \"{1}\"", successfull ? "OK" : "FAIL", command);
+                    Log?.PopStack();
+                    return successfull;
                 }
-                static private byte getVerbosityFilter(BaconArgs ArgBag)
+            }
+            class BMyDrawingCommand
+            {
+                public string Key;
+                public string Args;
+
+                public BMyDrawingCommand(string cmd)
                 {
-                    byte slug = 0;
-                    int verbosity = ArgBag.getFlag(BMyArgParams.LOG_VERBOSITY);
-                    if (verbosity >= 1)
-                    {
-                        slug |= BMyLog4PB.E_FATAL;
-                    }
-                    if (verbosity >= 2)
-                    {
-                        slug |= BMyLog4PB.E_ERROR;
-                    }
-                    if (verbosity >= 3)
-                    {
-                        slug |= BMyLog4PB.E_WARN;
-                    }
-                    if (verbosity >= 4)
-                    {
-                        slug |= BMyLog4PB.E_INFO;
-                    }
-                    if (verbosity >= 5 && ArgBag.hasOption(BMyArgParams.LOG_ENABLEDEBUG))
-                    {
-                        slug |= BMyLog4PB.E_DEBUG;
-                    }
-                    if (verbosity >= 6 && ArgBag.hasOption(BMyArgParams.LOG_ENABLEDEBUG))
-                    {
-                        slug |= BMyLog4PB.E_TRACE;
-                    }
+                    string[] slug = cmd.Split(new Char[] { ' ' }, 2);
+                    Key = slug[0];
+                    Args = (slug.Length == 2) ? slug[1] : "";
+                }
 
-                    return slug;
+                public override string ToString()
+                {
+                    return string.Format(@"{0} {1}", Key, Args);
                 }
             }
-            class BMyArgParams
+            public class BMyColor
             {
-                public const char LOG_VERBOSITY = 'v';
-                public const string LOG_ENABLEDEBUG = "debug";
-                public const string LOG_FORMAT = "logFormat";
-                public const string LOG_TAG = "logTag";
-                public const string LOG_TAG_DEFAULT = "[BaconDrawLog]";
+                public byte R;
+                public byte G;
+                public byte B;
+
+                public BMyColor(byte red, byte green, byte blue)
+                {
+                    R = red;
+                    G = green;
+                    B = blue;
+                }
+
+                public char ToChar()
+                {
+                    return (char)(0xe100 + (R << 6) + (G << 3) + B);
+                }
             }
-
-
-
-            class BMyBitmap
+            public class BMyPoint
             {
-                private char[,] _raster;
+                public int X;
+                public int Y;
+                public BMyPoint(int X, int Y)
+                {
+                    this.X = X;
+                    this.Y = Y;
+                }
+            }
+            public class BMyCanvas
+            {
+                private char[][] _raster;
                 public readonly int Width;
                 public readonly int Height;
+                public BMyColor color = new BMyColor(255, 255, 255);
+                private BMyPoint _pos = new BMyPoint(0, 0);
 
-                public BMyBitmap(int width, int height)
+                public BMyPoint Position
                 {
-                    _raster = new char[width, height];
-                    Width = _raster.GetUpperBound(0);
-                    Height = _raster.GetUpperBound(1);
+                    get { return _pos; }
+                    set
+                    {
+                        if (isInBounds(value.X, value.Y))
+                        {
+                            _pos = value;
+                        }
+                    }
+                }
+
+                public BMyCanvas(int width, int height, BMyColor background)
+                {
+                    Width = width;
+                    Height = height;
+                    _raster = new char[Height][];
+                    char bgChar = background.ToChar();
+                    for (int i = 0; i < _raster.Length; i++)
+                    {
+                        _raster[i] = (new String(bgChar, Width)).ToCharArray();
+                    }
                 }
                 public bool isInBounds(int x, int y)
                 {
                     return (0 <= x && x < Width && 0 <= y && y < Height);
                 }
-                public bool TryGetPixel(int x, int y, out char pixel)
+                public bool TrySetPixel(int x, int y, bool moveto = true)
                 {
                     if (isInBounds(x, y))
                     {
-                        pixel = _raster[x, y];
+                        _raster[x][y] = color.ToChar();
+                        if (moveto)
+                        {
+                            Position = new BMyPoint(x, y);
+                        }
                         return true;
                     }
                     else
                     {
-                        pixel = '\0';
                         return false;
                     }
                 }
-                public bool TrySetPixel(int x, int y, char pixel)
+
+                override public string ToString()
                 {
-                    if (isInBounds(x, y))
+                    StringBuilder buffer = new StringBuilder();
+                    foreach (char[] line in _raster)
                     {
-                        _raster[x, y] = pixel;
-                        return true;
+                        buffer.AppendLine(new String(line));
                     }
-                    else
-                    {
-                        return false;
-                    }
+                    return buffer.ToString();
                 }
             }
         }
 
-        #region libraries
-        public class BMyLog4PB { public const byte E_ALL = 63; public const byte E_TRACE = 32; public const byte E_DEBUG = 16; public const byte E_INFO = 8; public const byte E_WARN = 4; public const byte E_ERROR = 2; public const byte E_FATAL = 1; Dictionary<string, string> i = new Dictionary<string, string>() { { "{Date}", "{0}" }, { "{Time}", "{1}" }, { "{Milliseconds}", "{2}" }, { "{Severity}", "{3}" }, { "{CurrentInstructionCount}", "{4}" }, { "{MaxInstructionCount}", "{5}" }, { "{Message}", "{6}" }, { "{Stack}", "{7}" } }; Stack<string> j = new Stack<string>(); public byte Filter; public readonly Dictionary<BMyAppenderBase, string> Appenders = new Dictionary<BMyAppenderBase, string>(); string k = @"[{0}-{1}/{2}][{3}][{4}/{5}][{7}] {6}"; string l = @"[{Date}-{Time}/{Milliseconds}][{Severity}][{CurrentInstructionCount}/{MaxInstructionCount}][{Stack}] {Message}"; public string Format { get { return l; } set { k = n(value); l = value; } } readonly Program m; public bool AutoFlush = true; public BMyLog4PB(Program a) : this(a, E_FATAL | E_ERROR | E_WARN | E_INFO, new BMyEchoAppender(a)) { } public BMyLog4PB(Program a, byte b, params BMyAppenderBase[] c) { Filter = b; this.m = a; foreach (var Appender in c) AddAppender(Appender); } string n(string a) { var b = a; foreach (var item in i) b = b.Replace(item.Key, item.Value); return b; } public BMyLog4PB Flush() { foreach (var AppenderItem in Appenders) AppenderItem.Key.Flush(); return this; } public BMyLog4PB PushStack(string a) { j.Push(a); return this; } public string PopStack() { return (j.Count > 0) ? j.Pop() : null; } string o() { return (j.Count > 0) ? j.Peek() : null; } public string StackToString() { if (If(E_TRACE) != null) { string[] a = j.ToArray(); Array.Reverse(a); return string.Join(@"/", a); } else return o(); } public BMyLog4PB AddAppender(BMyAppenderBase a, string b = null) { if (!Appenders.ContainsKey(a)) Appenders.Add(a, n(b)); return this; } public BMyLog4PB If(byte a) { return ((a & Filter) != 0) ? this : null; } public BMyLog4PB Fatal(string a, params object[] b) { If(E_FATAL).p("FATAL", a, b); return this; } public BMyLog4PB Error(string a, params object[] b) { If(E_ERROR).p("ERROR", a, b); return this; } public BMyLog4PB Warn(string a, params object[] b) { If(E_WARN).p("WARN", a, b); return this; } public BMyLog4PB Info(string a, params object[] b) { If(E_INFO).p("INFO", a, b); return this; } public BMyLog4PB Debug(string a, params object[] b) { If(E_DEBUG).p("DEBUG", a, b); return this; } public BMyLog4PB Trace(string a, params object[] b) { If(E_TRACE).p("TRACE", a, b); return this; } void p(string a, string b, params object[] c) { DateTime d = DateTime.Now; q e = new q(d.ToShortDateString(), d.ToLongTimeString(), d.Millisecond.ToString(), a, m.Runtime.CurrentInstructionCount, m.Runtime.MaxInstructionCount, string.Format(b, c), StackToString()); foreach (var item in Appenders) { var f = (item.Value != null) ? item.Value : k; item.Key.Enqueue(e.ToString(f)); if (AutoFlush) item.Key.Flush(); } } class q { public string Date; public string Time; public string Milliseconds; public string Severity; public int CurrentInstructionCount; public int MaxInstructionCount; public string Message; public string Stack; public q(string a, string b, string c, string d, int e, int f, string g, string h) { this.Date = a; this.Time = b; this.Milliseconds = c; this.Severity = d; this.CurrentInstructionCount = e; this.MaxInstructionCount = f; this.Message = g; this.Stack = h; } public override string ToString() { return ToString(@"{0},{1},{2},{3},{4},{5},{6},{7},{8}"); } public string ToString(string a) { return string.Format(a, Date, Time, Milliseconds, Severity, CurrentInstructionCount, MaxInstructionCount, Message, Stack); } } public class BMyTextPanelAppender : BMyAppenderBase { List<string> i = new List<string>(); List<IMyTextPanel> j = new List<IMyTextPanel>(); public bool Autoscroll = true; public bool Prepend = false; public BMyTextPanelAppender(string a, Program b) { b.GridTerminalSystem.GetBlocksOfType<IMyTextPanel>(j, (c => c.CustomName.Contains(a))); } public override void Enqueue(string a) { i.Add(a); } public override void Flush() { foreach (var Panel in j) { k(Panel); Panel.ShowTextureOnScreen(); Panel.ShowPublicTextOnScreen(); } i.Clear(); } void k(IMyTextPanel a) { if (Autoscroll) { var b = new List<string>(a.GetPublicText().Split(new char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)); b.AddRange(i); int c = Math.Min(l(a), b.Count); if (Prepend) b.Reverse(); a.WritePublicText(string.Join("\n", b.GetRange(b.Count - c, c).ToArray()), false); } else if (Prepend) { var b = new List<string>(a.GetPublicText().Split(new char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)); b.AddRange(i); b.Reverse(); a.WritePublicText(string.Join("\n", b.ToArray()), false); } else { a.WritePublicText(string.Join("\n", i.ToArray()), true); } } int l(IMyTextPanel a) { float b = a.GetValueFloat("FontSize"); if (b == 0.0f) b = 0.01f; return Convert.ToInt32(Math.Ceiling(17.0f / b)); } } public class BMyKryptDebugSrvAppender : BMyAppenderBase { IMyProgrammableBlock i; Queue<string> j = new Queue<string>(); public BMyKryptDebugSrvAppender(Program a) { i = a.GridTerminalSystem.GetBlockWithName("DebugSrv") as IMyProgrammableBlock; } public override void Flush() { if (i != null) { var a = true; while (a && j.Count > 0) if (i.TryRun("L" + j.Peek())) { j.Dequeue(); } else { a = false; } } } public override void Enqueue(string a) { j.Enqueue(a); } } public class BMyEchoAppender : BMyAppenderBase { Program i; public BMyEchoAppender(Program a) { this.i = a; } public override void Flush() { } public override void Enqueue(string a) { i.Echo(a); } } public abstract class BMyAppenderBase { public abstract void Enqueue(string a); public abstract void Flush(); } }
-        public class BaconArgs { public string Raw; static public BaconArgs parse(string a) { return (new Parser()).parseArgs(a); } static public string Escape(object a) { return string.Format("{0}", a).Replace(@"\", @"\\").Replace(@" ", @"\ ").Replace(@"""", @"\"""); } static public string UnEscape(string a) { return a.Replace(@"\""", @"""").Replace(@"\ ", @" ").Replace(@"\\", @"\"); } public class Parser { static Dictionary<string, BaconArgs> h = new Dictionary<string, BaconArgs>(); public BaconArgs parseArgs(string a) { if (!h.ContainsKey(a)) { var b = new BaconArgs(); b.Raw = a; var c = false; var d = false; var e = new StringBuilder(); for (int f = 0; f < a.Length; f++) { var g = a[f]; if (c) { e.Append(g); c = false; } else if (g.Equals('\\')) c = true; else if (d && !g.Equals('"')) e.Append(g); else if (g.Equals('"')) d = !d; else if (g.Equals(' ')) if (e.ToString().Equals("--")) { b.add(a.Substring(f).TrimStart()); e.Clear(); break; } else { b.add(e.ToString()); e.Clear(); } else e.Append(g); } if (e.Length > 0) b.add(e.ToString()); h.Add(a, b); } return h[a]; } } protected Dictionary<char, int> h = new Dictionary<char, int>(); protected List<string> i = new List<string>(); protected Dictionary<string, List<string>> j = new Dictionary<string, List<string>>(); public List<string> getArguments() { return i; } public int getFlag(char a) { return h.ContainsKey(a) ? h[a] : 0; } public bool hasArguments() { return i.Count > 0; } public bool hasOption(string a) { return j.ContainsKey(a); } public List<string> getOption(string a) { return j.ContainsKey(a) ? j[a] : new List<string>(); } public void add(string a) { if (a.Trim().Length > 0) if (!a.StartsWith("-")) { i.Add(a); } else if (a.StartsWith("--")) { KeyValuePair<string, string> b = k(a); string c = b.Key.Substring(2); if (!j.ContainsKey(c)) { j.Add(c, new List<string>()); } j[c].Add(b.Value); } else { string b = a.Substring(1); for (int d = 0; d < b.Length; d++) { if (this.h.ContainsKey(b[d])) { this.h[b[d]]++; } else { this.h.Add(b[d], 1); } } } } KeyValuePair<string, string> k(string a) { string[] b = a.Split(new char[] { '=' }, 2); return new KeyValuePair<string, string>(b[0], (b.Length > 1) ? b[1] : null); } public string ToArguments() { var a = new List<string>(); foreach (string argument in this.getArguments()) a.Add(Escape(argument)); foreach (KeyValuePair<string, List<string>> option in this.j) { var b = "--" + Escape(option.Key); foreach (string optVal in option.Value) a.Add(b + ((optVal != null) ? "=" + Escape(optVal) : "")); } var c = (h.Count > 0) ? "-" : ""; foreach (KeyValuePair<char, int> flag in h) c += new String(flag.Key, flag.Value); a.Add(c); return String.Join(" ", a.ToArray()); } override public string ToString() { var a = new List<string>(); foreach (string key in j.Keys) a.Add(l(key) + ":[" + string.Join(",", j[key].ConvertAll<string>(b => l(b)).ToArray()) + "]"); var c = new List<string>(); foreach (char key in h.Keys) c.Add(key + ":" + h[key].ToString()); var d = new StringBuilder(); d.Append("{\"a\":["); d.Append(string.Join(",", i.ConvertAll<string>(b => l(b)).ToArray())); d.Append("],\"o\":[{"); d.Append(string.Join("},{", a)); d.Append("}],\"f\":[{"); d.Append(string.Join("},{", c)); d.Append("}]}"); return d.ToString(); } string l(string a) { return (a != null) ? "\"" + a.Replace(@"\", @"\\").Replace(@"""", @"\""") + "\"" : @"null"; } }
-        #endregion libraries
+        #region BMyLog4PB
+        public class BMyLog4PB
+        {
+            public const byte E_ALL = 63;
+            public const byte E_TRACE = 32; //Lowest	Finest-grained informational events.
+            public const byte E_DEBUG = 16; //Fine-grained informational events that are most useful to debug an application.
+            public const byte E_INFO = 8; //Informational messages that highlight the progress of the application at coarse-grained level.
+            public const byte E_WARN = 4; //Potentially harmful situations which still allow the application to continue running.
+            public const byte E_ERROR = 2; //Error events that might still allow the application to continue running.
+            public const byte E_FATAL = 1; //Highest	Very severe error events that will presumably lead the application to abort.
+
+            private Dictionary<string, string> formatMarkerMap = new Dictionary<string, string>() {
+                {"{Date}","{0}"},
+                {"{Time}","{1}"},
+                {"{Milliseconds}","{2}"},
+                {"{Severity}","{3}"},
+                {"{CurrentInstructionCount}","{4}"},
+                {"{MaxInstructionCount}","{5}"},
+                {"{Message}","{6}"},
+                {"{Stack}","{7}" }
+            };
+            private Stack<string> Stack = new Stack<string>();
+            public byte Filter;
+            public readonly Dictionary<BMyAppenderBase, string> Appenders = new Dictionary<BMyAppenderBase, string>();
+            private string _defaultFormat = @"[{0}-{1}/{2}][{3}][{4}/{5}][{7}] {6}";
+            private string _formatRaw = @"[{Date}-{Time}/{Milliseconds}][{Severity}][{CurrentInstructionCount}/{MaxInstructionCount}][{Stack}] {Message}";
+            public string Format
+            {
+                get { return _formatRaw; }
+                set
+                {
+                    _defaultFormat = compileFormat(value);
+                    _formatRaw = value;
+                }
+            }
+            private readonly Program Assembly;
+            public bool AutoFlush = true;
+
+            public BMyLog4PB(Program Assembly) : this(Assembly, E_FATAL | E_ERROR | E_WARN | E_INFO, new BMyEchoAppender(Assembly))
+            {
+
+            }
+            public BMyLog4PB(Program Assembly, byte filter, params BMyAppenderBase[] Appenders)
+            {
+                Filter = filter;
+                this.Assembly = Assembly;
+                foreach (var Appender in Appenders)
+                {
+                    AddAppender(Appender);
+                }
+            }
+            private string compileFormat(string value)
+            {
+                string format = value;
+                foreach (var item in formatMarkerMap)
+                {
+                    format = format?.Replace(item.Key, item.Value);
+                }
+                return format;
+            }
+
+            public BMyLog4PB Flush()
+            {
+                foreach (var AppenderItem in Appenders)
+                {
+                    AppenderItem.Key.Flush();
+                }
+                return this;
+            }
+            public BMyLog4PB PushStack(string name)
+            {
+                Stack.Push(name);
+                return this;
+            }
+            public string PopStack()
+            {
+                return (Stack.Count > 0) ? Stack.Pop() : null;
+            }
+            private string PeekStack()
+            {
+                return (Stack.Count > 0) ? Stack.Peek() : null;
+            }
+            public string StackToString()
+            {
+                if (If(E_TRACE) != null)
+                {
+                    string[] buffer = Stack.ToArray();
+                    Array.Reverse(buffer);
+                    return string.Join(@"/", buffer);
+                }
+                else
+                {
+                    return PeekStack();
+                }
+            }
+            public BMyLog4PB AddAppender(BMyAppenderBase Appender, string format = null)
+            {
+                if (!Appenders.ContainsKey(Appender))
+                {
+                    Appenders.Add(Appender, compileFormat(format));
+                }
+
+                return this;
+            }
+            public BMyLog4PB If(byte filter)
+            {
+                return ((filter & Filter) != 0) ? this : null;
+            }
+            public BMyLog4PB Fatal(string format, params object[] values)
+            {
+                If(E_FATAL)?.Append("FATAL", format, values);
+                return this;
+            }
+            public BMyLog4PB Error(string format, params object[] values)
+            {
+                If(E_ERROR)?.Append("ERROR", format, values);
+                return this;
+            }
+            public BMyLog4PB Warn(string format, params object[] values)
+            {
+                If(E_WARN)?.Append("WARN", format, values);
+                return this;
+            }
+            public BMyLog4PB Info(string format, params object[] values)
+            {
+                If(E_INFO)?.Append("INFO", format, values);
+                return this;
+            }
+            public BMyLog4PB Debug(string format, params object[] values)
+            {
+                If(E_DEBUG)?.Append("DEBUG", format, values);
+                return this;
+            }
+            public BMyLog4PB Trace(string format, params object[] values)
+            {
+                If(E_TRACE)?.Append("TRACE", format, values);
+                return this;
+            }
+            private void Append(string level, string format, params object[] values)
+            {
+                DateTime DT = DateTime.Now;
+                var message = new BMyMessage(
+                    DT.ToShortDateString(),
+                    DT.ToLongTimeString(),
+                    DT.Millisecond.ToString(),
+                    level,
+                    Assembly.Runtime.CurrentInstructionCount,
+                    Assembly.Runtime.MaxInstructionCount,
+                    string.Format(format, values),
+                    StackToString()
+                );
+                foreach (var item in Appenders)
+                {
+                    var formatBuffer = (item.Value != null) ? item.Value : _defaultFormat;
+                    item.Key.Enqueue(message.ToString(formatBuffer));
+                    if (AutoFlush)
+                    {
+                        item.Key.Flush();
+                    }
+                }
+            }
+            class BMyMessage
+            {
+                public string Date;
+                public string Time;
+                public string Milliseconds;
+                public string Severity;
+                public int CurrentInstructionCount;
+                public int MaxInstructionCount;
+                public string Message;
+                public string Stack;
+                public BMyMessage(string Date, string Time, string Milliseconds, string Severity, int CurrentInstructionCount, int MaxInstructionCount, string Message, string Stack)
+                {
+                    this.Date = Date;
+                    this.Time = Time;
+                    this.Milliseconds = Milliseconds;
+                    this.Severity = Severity;
+                    this.CurrentInstructionCount = CurrentInstructionCount;
+                    this.MaxInstructionCount = MaxInstructionCount;
+                    this.Message = Message;
+                    this.Stack = Stack;
+                }
+                public override string ToString()
+                {
+                    return ToString(@"{0},{1},{2},{3},{4},{5},{6},{7},{8}");
+                }
+                public string ToString(string format)
+                {
+                    return string.Format(
+                        format,
+                        Date,
+                        Time,
+                        Milliseconds,
+                        Severity,
+                        CurrentInstructionCount,
+                        MaxInstructionCount,
+                        Message,
+                        Stack
+                        );
+                }
+            }
+            public class BMyTextPanelAppender : BMyAppenderBase
+            {
+                List<string> Queue = new List<string>();
+                List<IMyTextPanel> Panels = new List<IMyTextPanel>();
+                public bool Autoscroll = true;
+                public bool Prepend = false;
+                public BMyTextPanelAppender(string tag, Program Assembly)
+                {
+                    Assembly.GridTerminalSystem.GetBlocksOfType<IMyTextPanel>(Panels, (p => p.CustomName.Contains(tag)));
+                }
+                public override void Enqueue(string message)
+                {
+                    Queue.Add(message);
+                }
+                public override void Flush()
+                {
+                    foreach (var Panel in Panels)
+                    {
+                        AddEntriesToPanel(Panel);
+                        Panel.ShowTextureOnScreen();
+                        Panel.ShowPublicTextOnScreen();
+                    }
+                    Queue.Clear();
+                }
+                private void AddEntriesToPanel(IMyTextPanel Panel)
+                {
+                    if (Autoscroll)
+                    {
+                        List<string> buffer = new List<string>(Panel.GetPublicText().Split(new char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries));
+                        buffer.AddRange(Queue);
+                        int maxLines = Math.Min(getMaxLinesFromPanel(Panel), buffer.Count);
+                        if (Prepend)
+                        {
+                            buffer.Reverse();
+                        }
+                        Panel.WritePublicText(string.Join("\n", buffer.GetRange(buffer.Count - maxLines, maxLines).ToArray()), false);
+                    }
+                    else
+                    {
+                        if (Prepend)
+                        {
+                            var buffer = new List<string>(Panel.GetPublicText().Split(new char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries));
+                            buffer.AddRange(Queue);
+                            buffer.Reverse();
+                            Panel.WritePublicText(string.Join("\n", buffer.ToArray()), false);
+                        }
+                        else
+                        {
+                            Panel.WritePublicText(string.Join("\n", Queue.ToArray()), true);
+                        }
+                    }
+                }
+                private int getMaxLinesFromPanel(IMyTextPanel Panel)
+                {
+                    float fontSize = Panel.GetValueFloat("FontSize");
+                    if (fontSize == 0.0f)
+                    {
+                        fontSize = 0.01f;
+                    }
+                    return Convert.ToInt32(Math.Ceiling(17.0f / fontSize));
+                }
+            }
+            public class BMyKryptDebugSrvAppender : BMyAppenderBase
+            {
+                private IMyProgrammableBlock _debugSrv;
+                private Queue<string> queue = new Queue<string>();
+                public BMyKryptDebugSrvAppender(Program Assembly)
+                {
+                    _debugSrv = Assembly.GridTerminalSystem.GetBlockWithName("DebugSrv") as IMyProgrammableBlock;
+                }
+                public override void Flush()
+                {
+                    if (_debugSrv != null)
+                    {
+                        bool proceed = true;
+                        while (proceed && queue.Count > 0)
+                        {
+                            if (_debugSrv.TryRun("L" + queue.Peek()))
+                            {
+                                queue.Dequeue();
+                            }
+                            else
+                            {
+                                proceed = false;
+                            }
+                        }
+                    }
+                }
+                public override void Enqueue(string message)
+                {
+                    queue.Enqueue(message);
+                }
+            }
+            public class BMyEchoAppender : BMyAppenderBase
+            {
+                private Program Assembly;
+
+                public BMyEchoAppender(Program Assembly)
+                {
+                    this.Assembly = Assembly;
+                }
+
+                public override void Flush() { }
+
+                public override void Enqueue(string message)
+                {
+                    Assembly.Echo(message);
+                }
+            }
+            public class BMyCustomDataAppender : BMyAppenderBase
+            {
+                Program Assembly;
+                public BMyCustomDataAppender(Program Assembly)
+                {
+                    this.Assembly = Assembly;
+                    this.Assembly.Me.CustomData = "";
+                }
+                public override void Enqueue(string message)
+                {
+                    Assembly.Me.CustomData = Assembly.Me.CustomData + '\n' + message;
+                }
+                public override void Flush()
+                {
+
+                }
+            }
+
+            public abstract class BMyAppenderBase
+            {
+                public abstract void Enqueue(string message);
+                public abstract void Flush();
+            }
+        }
+
+        #endregion BMyLog4PB
+
         #endregion End of  Game Code - Copy/Paste Code from this region into Block Script Window in Game
     }
 }
