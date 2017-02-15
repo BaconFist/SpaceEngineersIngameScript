@@ -23,6 +23,7 @@ namespace BaconDrawDEV
         {
             BaconDraw = new BMyBaconDraw();
         }
+
         public void Main(string argument)
         {
             BMyBaconDraw.BMyEnvironment Env = new BMyBaconDraw.BMyEnvironment(this, argument);
@@ -30,7 +31,9 @@ namespace BaconDrawDEV
             {
                 Env.Log?.PushStack("Main");
                 BaconDraw.Env = Env;
-                Env.Log?.Debug("updated environment");
+                Env.Log?.Debug("environment initialized");
+
+                //like doing stuff
             }
             catch (Exception e)
             {
