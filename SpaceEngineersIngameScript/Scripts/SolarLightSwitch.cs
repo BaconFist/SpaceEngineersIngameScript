@@ -35,7 +35,7 @@ namespace SolarLightSwitch
             Script uses solarpanels to determine day or night an toggles lights 
  
             Parameter: "key@powerlevel" 
-            key: a key in the Lightblock's Names to identify the lights. 
+            key: a key in the Lightblock's or Group's Names to identify the lights. 
             powerlevel: Maxoutput level of solarpanels as trigger in watt (below means lights on, above lights off) 
                  
             
