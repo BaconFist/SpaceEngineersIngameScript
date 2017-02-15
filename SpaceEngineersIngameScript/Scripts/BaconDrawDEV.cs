@@ -56,6 +56,7 @@ namespace BaconDrawDEV
                 Env.DrawPlugins.AddPlugin(new BMyDrawPlugin_Rect()); // "rect x,y" where x y is integer
                 Env.DrawPlugins.AddPlugin(new BMyDrawPlugin_Polygon()); // "poly x,y x,y x,y" where x y is integer
                 Env.DrawPlugins.AddPlugin(new BMyDrawPlugin_Color()); // "color R,G,B" where R G B is 0-6
+                Env.DrawPlugins.AddPlugin(new BMyDrawPlugin_Dot()); // "dot x,y" where x y is integer
                 foreach (KeyValuePair<string, List<BMyDrawPlugin>> _pluginlist in Env.DrawPlugins)
                 {
                     Env.Log?.Debug(@"{0} Plugins for {1}", _pluginlist.Value.Count, _pluginlist.Key);
@@ -516,6 +517,43 @@ namespace BaconDrawDEV
                         return true;
                     }
                     return false;
+                }
+            }
+            class BMyDrawPlugin_Dot : BMyDrawPlugin
+            {
+                public override string Name
+                {
+                    get
+                    {
+                        return "dot";
+                    }
+                }
+
+                public override string Vendor
+                {
+                    get
+                    {
+                        return "DasBaconfist";
+                    }
+                }
+
+                public override bool TryRun(BMyDrawingCommand command, BMyCanvas canvas, BMyEnvironment Env)
+                {
+                    string[] argv = command.Args.Split(new char[] { ',' });
+                    int x;
+                    int y;
+                    if (
+                        argv.Length == 2
+                        && int.TryParse(argv[0], out x)
+                        && int.TryParse(argv[1], out y)
+                        )
+                    {
+                        return canvas.TrySetPixel(x, y);
+                    }
+                    else
+                    {
+                        return false;
+                    }
                 }
             }
             #endregion draw plugins
