@@ -20,7 +20,7 @@ namespace $safeitemname$ {
     /**
     $safeitemname$
     ==============
-    Copyright 2016 Thomas Klose <thomas@bratler.net>
+    Copyright 2017 Thomas Klose <thomas@bratler.net>
     License: https://github.com/BaconFist/SpaceEngineersIngameScript/blob/master/LICENSE
 
     Description
