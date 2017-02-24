@@ -42,6 +42,7 @@
     <Compile Include="Scripts\FuelConsumption.cs" />
     <Compile Include="Scripts\GPSDistance.cs" />
     <Compile Include="Scripts\Log4PB.cs" />
+    <Compile Include="Scripts\RemoteTerminal.cs" />
     <Compile Include="Scripts\ShipyardGateControl.cs" />
     <Compile Include="Scripts\Snippet_BaconMessages.cs" />
     <Compile Include="Scripts\Snippet_BaconSerialize.cs" />
