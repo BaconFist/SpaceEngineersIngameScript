@@ -27,7 +27,19 @@ namespace Block_Prenamer
         Description
         ===========
 
-            Block Renamer HELP            ======================            This script is meant to rename new Blocks.            run script with argument "Light Runway"            and all new placed blocks will be named            "Light Runway".            WARNING: DO NOT RUN THIS WITH A TIMER!                        Type desired name in the argument and run script.             Any Block since last run or last time compiled             will get this name.        */
+            Block Renamer HELP
+            ======================
+            This script is meant to rename new Blocks.
+            run script with argument "Light Runway"
+            and all new placed blocks will be named
+            "Light Runway".
+
+            WARNING: DO NOT RUN THIS WITH A TIMER!
+            
+            Type desired name in the argument and run script. 
+            Any Block since last run or last time compiled 
+            will get this name.
+        */
 
         List<IMyTerminalBlock> LastKnownBlocks = new List<IMyTerminalBlock>();
         string NewBlockName = "";
