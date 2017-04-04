@@ -61,6 +61,18 @@ namespace GFXLib
             // The method itself is required, but the argument above
             // can be removed if not needed.
         }
+
+        public class BMyBaconGFX
+        {
+            public class BMyImage
+            {
+                private int _width;
+                private int _height;
+
+            }
+        }
+
+
         #endregion End of  Game Code - Copy/Paste Code from this region into Block Script Window in Game
     }
 }
