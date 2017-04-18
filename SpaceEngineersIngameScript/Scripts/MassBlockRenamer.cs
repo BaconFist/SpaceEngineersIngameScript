@@ -100,7 +100,7 @@ namespace MassBlockRenamer
                     slug = slug.Replace(MARKER_NUMBER, blockNumber.ToString());
                 }
             }
-            Block.SetCustomName(slug.ToString());
+            Block.CustomName = slug.ToString();
         }
 
         public Argument getArgument(string args)
