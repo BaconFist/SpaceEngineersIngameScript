@@ -35,14 +35,15 @@
   <ItemGroup>
     <Compile Include="Scripts\BaconsAutomatedButtonCaption.cs" />
     <Compile Include="Scripts\BaconsFillLevelDisplay.cs" />
-    <Compile Include="Scripts\BaconDrawDEV.cs" />
-    <Compile Include="Scripts\BaconDrawV2.cs" />
+    <Compile Include="Scripts\DrawStuff\BaconDrawDEV.cs" />
+    <Compile Include="Scripts\DrawStuff\BaconDrawV2.cs" />
     <Compile Include="Scripts\BaconsWingmanDrone.cs" />
-    <Compile Include="Scripts\BD_Refactor.cs" />
+    <Compile Include="Scripts\DrawStuff\BD_Refactor.cs" />
     <Compile Include="Scripts\Block Prenamer.cs" />
     <Compile Include="Scripts\DedicatedTimerFix.cs" />
     <Compile Include="Scripts\DoorInterlock.cs" />
     <Compile Include="Scripts\FuelConsumption.cs" />
+    <Compile Include="Scripts\GFXLib.cs" />
     <Compile Include="Scripts\GPSDistance.cs" />
     <Compile Include="Scripts\Log4PB.cs" />
     <Compile Include="Scripts\PrecisePropertyHandling.cs" />
@@ -50,7 +51,7 @@
     <Compile Include="Scripts\ShipyardGateControl.cs" />
     <Compile Include="Scripts\Snippet_BaconMessages.cs" />
     <Compile Include="Scripts\Snippet_BaconSerialize.cs" />
-    <Compile Include="Scripts\BaconDraw.cs" />
+    <Compile Include="Scripts\DrawStuff\BaconDraw.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Scripts\Snippet_BaconTextWidth.cs" />
     <Compile Include="Scripts\MassBlockRenamer.cs" />
