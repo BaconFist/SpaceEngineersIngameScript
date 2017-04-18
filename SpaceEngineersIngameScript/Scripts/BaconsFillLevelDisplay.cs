@@ -61,12 +61,19 @@ namespace BaconsFillLevelDisplay
 
         public void Main(string argument)
         {
-            Start = DateTime.Now;
-            panelProgressCount = 0;
-            tag = (argument.Trim().Length > 0) ? argument.Trim() : tag;
-            enqueuePanels();
-            progressPanels();
-            statisics();            
+            try
+            {
+                Start = DateTime.Now;
+                panelProgressCount = 0;
+                tag = (argument.Trim().Length > 0) ? argument.Trim() : tag;
+                enqueuePanels();
+                progressPanels();
+                statisics();
+            }
+            catch (Exception e)
+            {
+                Echo(string.Format(@"Exception: {0}", e.Message));
+            }
         }
 
         public void statisics()
