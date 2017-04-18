@@ -47,7 +47,8 @@ namespace BaconsFillLevelDisplay
         
 
         const int LOAD_LIMIT = 35000;
-        string tag = "[FLD]";
+        string tag;
+        string defaultTag = "[FLD]";
         char color_red = (char)(0xe100 + (4 << 6) + (0 << 3) + 0);
         char color_orange = (char)(0xe100 + (4 << 6) + (2 << 3) + 0);
         char color_green = (char)(0xe100 + (0 << 6) + (4 << 3) + 0);
@@ -65,7 +66,7 @@ namespace BaconsFillLevelDisplay
             {
                 Start = DateTime.Now;
                 panelProgressCount = 0;
-                tag = (argument.Trim().Length > 0) ? argument.Trim() : tag;
+                tag = (argument.Trim().Length > 0) ? argument.Trim() : defaultTag;
                 enqueuePanels();
                 progressPanels();
                 statisics();
