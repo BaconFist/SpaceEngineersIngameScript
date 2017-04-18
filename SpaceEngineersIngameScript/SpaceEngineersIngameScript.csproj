@@ -33,15 +33,19 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Scripts\BaconsAutomatedButtonCaption.cs" />
+    <Compile Include="Scripts\BaconsFillLevelDisplay.cs" />
     <Compile Include="Scripts\BaconDrawDEV.cs" />
     <Compile Include="Scripts\BaconDrawV2.cs" />
     <Compile Include="Scripts\BaconsWingmanDrone.cs" />
     <Compile Include="Scripts\BD_Refactor.cs" />
     <Compile Include="Scripts\Block Prenamer.cs" />
+    <Compile Include="Scripts\DedicatedTimerFix.cs" />
     <Compile Include="Scripts\DoorInterlock.cs" />
     <Compile Include="Scripts\FuelConsumption.cs" />
     <Compile Include="Scripts\GPSDistance.cs" />
     <Compile Include="Scripts\Log4PB.cs" />
+    <Compile Include="Scripts\PrecisePropertyHandling.cs" />
     <Compile Include="Scripts\RemoteTerminal.cs" />
     <Compile Include="Scripts\ShipyardGateControl.cs" />
     <Compile Include="Scripts\Snippet_BaconMessages.cs" />
