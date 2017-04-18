@@ -35,6 +35,7 @@
   <ItemGroup>
     <Compile Include="Scripts\BaconsAutomatedButtonCaption.cs" />
     <Compile Include="Scripts\BaconsFillLevelDisplay.cs" />
+    <Compile Include="Scripts\CruiseControl.cs" />
     <Compile Include="Scripts\DrawStuff\BaconDrawDEV.cs" />
     <Compile Include="Scripts\DrawStuff\BaconDrawV2.cs" />
     <Compile Include="Scripts\BaconsWingmanDrone.cs" />
