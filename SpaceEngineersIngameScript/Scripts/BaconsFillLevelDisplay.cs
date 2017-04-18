@@ -83,13 +83,10 @@ namespace BaconsFillLevelDisplay
         public void enqueuePanels()
         {
             List<IMyTextPanel> Matches = new List<IMyTextPanel>();
-            GridTerminalSystem.GetBlocksOfType<IMyTextPanel>(Matches, (p => p.CustomName.Contains(tag)));
+            GridTerminalSystem.GetBlocksOfType<IMyTextPanel>(Matches, (p => p.CubeGrid.Equals(Me.CubeGrid) && p.CustomName.Contains(tag) && !PanelQueue.Contains(p)));
             foreach(IMyTextPanel Panel in Matches)
             {
-                if (!PanelQueue.Contains(Panel))
-                {
-                    PanelQueue.Enqueue(Panel);
-                }
+                PanelQueue.Enqueue(Panel);
             }
         }
 
