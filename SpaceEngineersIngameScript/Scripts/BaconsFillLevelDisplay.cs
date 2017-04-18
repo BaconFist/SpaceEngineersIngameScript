@@ -108,8 +108,10 @@ namespace BaconsFillLevelDisplay
                 IMyTerminalBlock Cargo = getCargo(Panel);
                 if (Panel != null && Panel is IMyTextPanel && Cargo != null && Panel.IsFunctional && Panel.IsWorking)
                 {
-                    string fillBar = getFillLevelBarForBlock(Cargo);
-
+                    int fillLevel0 = 0;
+                    int fillLevel1 = 0;
+                    string fillBar = getFillLevelBarForBlock(Cargo, out fillLevel0, out fillLevel1);
+                    Panel.CustomData = string.Format("= Bacon's autoamted Fill Level Display =\nInventory Block: {0}\nLast Update: {1}\nLevel Inventory #0: ~{2}%\nLevel Inventory #1: ~{3}%", Cargo.CustomName, DateTime.Now, fillLevel0, fillLevel1);
                     Panel.WritePublicText(fillBar);
                     Panel.SetValueFloat("FontSize", fontSizeFuelBar);
                     Panel.SetValue<long>("Font", fontIdMonospaced);
@@ -148,15 +150,18 @@ namespace BaconsFillLevelDisplay
             return null;
         }
 
-        public string getFillLevelBarForBlock(IMyTerminalBlock Block)
+        public string getFillLevelBarForBlock(IMyTerminalBlock Block, out int fillLevel0, out int fillLevel1)
         {
+            fillLevel0 = 0;
+            fillLevel1 = 0;
+
             if (!Block.HasInventory)
             {
                 return "";
             }
             StringBuilder slug = new StringBuilder();
 
-            string bar0 = getFillLevelBarForInventory(Block.GetInventory(0));
+            string bar0 = getFillLevelBarForInventory(Block.GetInventory(0), out fillLevel0);
             switch (Block.InventoryCount)
             {
                 case 1:
@@ -167,7 +172,7 @@ namespace BaconsFillLevelDisplay
                     }
                     break;
                 case 2:
-                    string bar1 = getFillLevelBarForInventory(Block.GetInventory(1));
+                    string bar1 = getFillLevelBarForInventory(Block.GetInventory(1), out fillLevel1);
                     for (int i = 0; i <= 7; i++)
                     {
                         slug.AppendLine(bar0);
@@ -183,9 +188,9 @@ namespace BaconsFillLevelDisplay
             return slug.ToString();
         }
 
-        public string getFillLevelBarForInventory(IMyInventory Inventory)
+        public string getFillLevelBarForInventory(IMyInventory Inventory, out int fillLevel)
         {
-            int fillLevel = getPercentage(Inventory);
+            fillLevel = getPercentage(Inventory);
             if(fillLevel == 0)
             {
                 return "";
