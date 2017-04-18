@@ -237,7 +237,7 @@ namespace BaconSort
         private void DoSortContainer(IMyTerminalBlock SourceBlock, Dictionary<string, List<IMyTerminalBlock>> DestinationMap)
         {
             Log?.PushStack("private void DoSortContainer(IMyTerminalBlock SourceBlock, Dictionary<string, List<IMyTerminalBlock>> DestinationMap)");
-            for(int i_SourceBlockInventory = 0; i_SourceBlockInventory < SourceBlock.GetInventoryCount(); i_SourceBlockInventory++)
+            for(int i_SourceBlockInventory = 0; i_SourceBlockInventory < SourceBlock.InventoryCount; i_SourceBlockInventory++)
             {
                 IMyInventory InventorySource = SourceBlock.GetInventory(i_SourceBlockInventory);
                 for(int i_Item=InventorySource.GetItems().Count-1;i_Item>=0;i_Item--)
@@ -256,7 +256,7 @@ namespace BaconSort
                                 for(int i_DestinationBlock = 0; isItemPending && i_DestinationBlock < DestinationMap[tag].Count; i_DestinationBlock++)
                                 {
                                     IMyTerminalBlock DestinationBlock = DestinationMap[tag][i_DestinationBlock];
-                                    for(int i_DestinationBlockInventory = 0; isItemPending && i_DestinationBlockInventory < DestinationBlock.GetInventoryCount(); i_DestinationBlockInventory++)
+                                    for(int i_DestinationBlockInventory = 0; isItemPending && i_DestinationBlockInventory < DestinationBlock.InventoryCount; i_DestinationBlockInventory++)
                                     {
                                         IMyInventory InventoryDestination = DestinationBlock.GetInventory(i_DestinationBlockInventory);
                                         if (InventorySource.IsConnectedTo(InventoryDestination))
@@ -325,7 +325,7 @@ namespace BaconSort
             List<IMyTerminalBlock> Blocks = new List<IMyTerminalBlock>();
             GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(Blocks, 
                 (b => 
-                    b.HasInventory() 
+                    b.HasInventory
                 && 
                     !b.CustomName.Contains(TAG_IGNORE)
                 &&
