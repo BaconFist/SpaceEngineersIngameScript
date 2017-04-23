@@ -52,6 +52,9 @@ namespace BaconsFillLevelDisplay
                 You can configure the Script via the Programmable Block's CustomData.
                 Deleta all from CustomData and recompile script to reset Configuration.
 
+                to use default values just put rhe key with no value to the config. (like "lcd.tag:" to use the default one
+                
+
                 Available options :
                 (all without quotes)
 
@@ -153,6 +156,23 @@ namespace BaconsFillLevelDisplay
         char stateColorOn;
 
         #endregion config
+
+        #region config defaults
+        string defaultLcdTag = "[FLD]";
+
+        char defaultBarColorMax = (char) (0xe100 + (4 << 6) + (0 << 3) + 0); //red
+        char defaultBarColorHigh = (char) (0xe100 + (4 << 6) + (2 << 3) + 0); //orange
+        char defaultBarColorDefault = (char) (0xe100 + (0 << 6) + (4 << 3) + 0); //green
+        string defaultBarDivider = new String((char)(0xe100 + (4 << 6) + (4 << 3) + 4), LCD_WIDTH);
+
+        char defaultColorBackground = (char) (0xe100 + (0 << 6) + (0 << 3) + 0); //black
+
+        bool defaultShowBlockState = true;
+
+        char defaultStateColorOff = (char) (0xe100 + (4 << 6) + (0 << 3) + 0); //red
+        char defaultStateColorIdle = (char) (0xe100 + (4 << 6) + (2 << 3) + 0); //orange
+        char defaultStateColorOn = (char) (0xe100 + (0 << 6) + (4 << 3) + 0); //green
+        #endregion config defaults
 
         public Program()
         {
@@ -467,70 +487,111 @@ namespace BaconsFillLevelDisplay
                             if (KeyValue[1].Trim().Length > 0)
                             {
                                 lcdTag = KeyValue[1].Trim();
+                            } else
+                            {
+                                lcdTag = defaultLcdTag;
                             }
                             break;
                         case CFG_BAR_COLOR_DEFAULT:
-                            if(TryParseColor(KeyValue[1], out colorBuffer))
+                            if(KeyValue[1].Trim().Length == 0)
+                            {
+                                barColorDefault = defaultBarColorDefault;
+                            } else if(TryParseColor(KeyValue[1], out colorBuffer))
                             {
                                 barColorDefault = colorBuffer;
                             }
                             break;
                         case CFG_BAR_COLOR_DIVIDER:
-                           if (TryParseColor(KeyValue[1], out colorBuffer))
+                            if (KeyValue[1].Trim().Length == 0)
+                            {
+                                barDivider = defaultBarDivider;
+                            }
+                            else if (TryParseColor(KeyValue[1], out colorBuffer))
                             {
                                 barDivider = new String(colorBuffer, LCD_WIDTH);
                             }
                             break;
                         case CFG_BAR_COLOR_HIGH:
-                       
-                            if (TryParseColor(KeyValue[1], out colorBuffer))
+
+                            if (KeyValue[1].Trim().Length == 0)
+                            {
+                                barColorHigh = defaultBarColorHigh;
+                            }
+                            else if (TryParseColor(KeyValue[1], out colorBuffer))
                             {
                                 barColorHigh = colorBuffer;
                             }
                             break;
                         case CFG_BAR_COLOR_MAX:
-                            if (TryParseColor(KeyValue[1], out colorBuffer))
+                            if (KeyValue[1].Trim().Length == 0)
+                            {
+                                barColorMax = defaultBarColorMax;
+                            }
+                            else if (TryParseColor(KeyValue[1], out colorBuffer))
                             {
                                 barColorMax = colorBuffer;
                             }
                             break;
                         case CFG_COLOR_BACKGROUND:
-                            if (TryParseColor(KeyValue[1], out colorBuffer))
+                            if (KeyValue[1].Trim().Length == 0)
+                            {
+                                colorBackground = defaultColorBackground;
+                            }
+                            else if (TryParseColor(KeyValue[1], out colorBuffer))
                             {
                                 colorBackground = colorBuffer;
                             }
                             break;
                         case CFG_STATE_COLOR_IDLE:
-                            if (TryParseColor(KeyValue[1], out colorBuffer))
+                            if (KeyValue[1].Trim().Length == 0)
+                            {
+                                stateColorIdle = defaultStateColorIdle;
+                            }
+                            else if (TryParseColor(KeyValue[1], out colorBuffer))
                             {
                                 stateColorIdle = colorBuffer;
                             }
                             break;
                         case CFG_STATE_COLOR_OFF:
-                            if (TryParseColor(KeyValue[1], out colorBuffer))
+                            if (KeyValue[1].Trim().Length == 0)
+                            {
+                                stateColorOff = defaultStateColorOff;
+                            }
+                            else if (TryParseColor(KeyValue[1], out colorBuffer))
                             {
                                 stateColorOff = colorBuffer;
                             }
                             break;
                         case CFG_STATE_COLOR_ON:
-                            if (TryParseColor(KeyValue[1], out colorBuffer))
+                            if (KeyValue[1].Trim().Length == 0)
+                            {
+                                stateColorOn = defaultStateColorOn;
+                            }
+                            else if (TryParseColor(KeyValue[1], out colorBuffer))
                             {
                                 stateColorOn = colorBuffer;
                             }
                             break;
                         case CFG_STATE_SHOW:
-                            switch (KeyValue[1].Trim().ToLowerInvariant())
+                            if (KeyValue[1].Trim().Length == 0)
                             {
-                                case "true":
-                                case "on":
-                                case "yes":
-                                case "y":
-                                case "1":
-                                    showBlockState = true;
-                                    break;
-                                default:
-                                    showBlockState = false;
-                                    break;
+                                showBlockState = defaultShowBlockState;
+                            }
+                            else
+                            {
+                                switch (KeyValue[1].Trim().ToLowerInvariant())
+                                {
+                                    case "true":
+                                    case "on":
+                                    case "yes":
+                                    case "y":
+                                    case "1":
+                                        showBlockState = true;
+                                        break;
+                                    default:
+                                        showBlockState = false;
+                                        break;
+                                }
                             }
                             break;
                         default:
@@ -557,37 +618,33 @@ namespace BaconsFillLevelDisplay
         public void applyDefaultConfigValues()
         {
             lcdTag = "[FLD]";
-
-            barColorMax = (char)(0xe100 + (4 << 6) + (0 << 3) + 0); //red
-            barColorHigh = (char)(0xe100 + (4 << 6) + (2 << 3) + 0); //orange
-            barColorDefault = (char)(0xe100 + (0 << 6) + (4 << 3) + 0); //green
-            barDivider = new String((char)(0xe100 + (4 << 6) + (4 << 3) + 4), LCD_WIDTH);
-
-            colorBackground = (char)(0xe100 + (0 << 6) + (0 << 3) + 0); //black
-
-            showBlockState = true;
-
-            stateColorOff = (char)(0xe100 + (4 << 6) + (0 << 3) + 0); //red
-            stateColorIdle = (char)(0xe100 + (4 << 6) + (2 << 3) + 0); //orange
-            stateColorOn = (char)(0xe100 + (0 << 6) + (4 << 3) + 0); //green
+            barColorMax = defaultBarColorMax;
+            barColorHigh = defaultBarColorHigh;
+            barColorDefault = defaultBarColorDefault;
+            barDivider = defaultBarDivider;
+            colorBackground = defaultColorBackground;
+            showBlockState = defaultShowBlockState;
+            stateColorOff = defaultStateColorOff;
+            stateColorIdle = defaultStateColorIdle;
+            stateColorOn = defaultStateColorOn;
         }
 
         public void writeDefaultConfigToCustomData()
         {
             StringBuilder slug = new StringBuilder();
-            slug.AppendLine(string.Format(@"{0}:{1}", CFG_LCD_TAG, "[FLD]"));
+            slug.AppendLine(string.Format(@"{0}:", CFG_LCD_TAG));
 
-            slug.AppendLine(string.Format(@"{0}:{1}", CFG_BAR_COLOR_MAX, "4,0,0"));
-            slug.AppendLine(string.Format(@"{0}:{1}", CFG_BAR_COLOR_HIGH, "4,2,0"));
-            slug.AppendLine(string.Format(@"{0}:{1}", CFG_BAR_COLOR_DEFAULT, "0,4,0"));
-            slug.AppendLine(string.Format(@"{0}:{1}", CFG_BAR_COLOR_DIVIDER, "4,4,4"));
+            slug.AppendLine(string.Format(@"{0}:", CFG_BAR_COLOR_MAX));
+            slug.AppendLine(string.Format(@"{0}:", CFG_BAR_COLOR_HIGH));
+            slug.AppendLine(string.Format(@"{0}:", CFG_BAR_COLOR_DEFAULT));
+            slug.AppendLine(string.Format(@"{0}:", CFG_BAR_COLOR_DIVIDER));
 
-            slug.AppendLine(string.Format(@"{0}:{1}", CFG_COLOR_BACKGROUND, "0,0,0"));
+            slug.AppendLine(string.Format(@"{0}:", CFG_COLOR_BACKGROUND));
 
-            slug.AppendLine(string.Format(@"{0}:{1}", CFG_STATE_SHOW, "on"));
-            slug.AppendLine(string.Format(@"{0}:{1}", CFG_STATE_COLOR_OFF, "4,0,0"));
-            slug.AppendLine(string.Format(@"{0}:{1}", CFG_STATE_COLOR_IDLE, "4,2,0"));
-            slug.AppendLine(string.Format(@"{0}:{1}", CFG_STATE_COLOR_ON, "0,4,0"));
+            slug.AppendLine(string.Format(@"{0}:", CFG_STATE_SHOW));
+            slug.AppendLine(string.Format(@"{0}:", CFG_STATE_COLOR_OFF));
+            slug.AppendLine(string.Format(@"{0}:", CFG_STATE_COLOR_IDLE));
+            slug.AppendLine(string.Format(@"{0}:", CFG_STATE_COLOR_ON));
 
 
             Me.CustomData = slug.ToString();
