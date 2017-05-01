@@ -245,7 +245,7 @@ namespace BaconsFillLevelDisplay
                     Panel.ShowPublicTextOnScreen();
                 } else
                 {
-                    Panel.WritePublicText("Container not found. (Mount this Panel to\na Block with a Inventory.)");
+                    Panel.WritePublicText("Container not found. (Mount this Panel to\na Block with an Inventory.)");
                     Panel.SetValueFloat("FontSize", fontSizeText);
                     Panel.SetValue<long>("Font", fontIdRed);
                     Panel.ShowPublicTextOnScreen();
