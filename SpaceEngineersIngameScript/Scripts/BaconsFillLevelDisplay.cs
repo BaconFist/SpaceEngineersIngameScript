@@ -104,6 +104,14 @@ namespace BaconsFillLevelDisplay
                     color for the border when the block is ON and WORKING
                     where r,g, and b must be between 0 and 7 (including)
 
+                "language: L"
+                    defaults to english (en)
+                    display language for all text
+                    where L must be an available language code
+                    available Language codes:
+                        en: english
+                        de: german                
+
         */
 
         Dictionary<IMyTextPanel, IMyTerminalBlock> PanelToCargoMap = new Dictionary<IMyTextPanel, IMyTerminalBlock>();
@@ -136,7 +144,8 @@ namespace BaconsFillLevelDisplay
         const string CFG_STATE_COLOR_OFF = "state.color.off";
         const string CFG_STATE_COLOR_IDLE = "state.color.idle";
         const string CFG_STATE_COLOR_ON = "state.color.on";
-        
+
+        const string CFG_LANGUAGE = "language";
         #endregion CustomData config Keys
 
         #region config
@@ -155,6 +164,7 @@ namespace BaconsFillLevelDisplay
         char stateColorIdle;
         char stateColorOn;
 
+        string language;
         #endregion config
 
         #region config defaults
@@ -172,7 +182,39 @@ namespace BaconsFillLevelDisplay
         char defaultStateColorOff = (char) (0xe100 + (4 << 6) + (0 << 3) + 0); //red
         char defaultStateColorIdle = (char) (0xe100 + (4 << 6) + (2 << 3) + 0); //orange
         char defaultStateColorOn = (char) (0xe100 + (0 << 6) + (4 << 3) + 0); //green
+
+        string defaultLanguage = "en";
         #endregion config defaults
+
+        #region text
+        Dictionary<string, Dictionary<string, string>> Text = new Dictionary<string, Dictionary<string, string>>() {
+            {"en", new Dictionary<string, string>(){
+                    {"statUsedTag","used Tag: {0}"}, // {0} => LCD Tag
+                    {"statLoad","Load: {0}% (Limit: {1}%)"}, // {0} => current load, {1} => max load
+                    {"statInstructions","Instructions: {0}/{1}"}, // {0} => current instructions, {1} => max instructions (50.000)
+                    {"statRuntime","Runtime (ms): {0}"}, //{0} => script runtime (realtime) in milliseconds
+                    {"statProgressed","Progressed: {0} Panels"}, // {0} => number of panels progressed in this run
+                    {"statQueued","Queued: {0} Panels"}, // {0} => number of panels delayed to the next run
+                    {"lcdStatSingleInventory","= Bacon's autoamted Fill Level Display =\nInventory Block: {0}\nLast Update: {1}\nLevel Inventory: ~{2}%"}, // {0} => Name of the Block with the inventory, {1} => datetime of last update, {2} => fill level of the inventory in percent
+                    {"lcdStatDoubleInventory","= Bacon's autoamted Fill Level Display =\nInventory Block: {0}\nLast Update: {1}\nLevel Inventory #0: ~{2}%\nLevel Inventory #1: ~{3}%"}, // {0} => Name of the Block with the inventory, {1} => datetime of last update, {2} => fill level of 1st the inventory in percent, {3} => fill level of 2nd the inventory in percent
+                    {"warnNoInventory","Container not found. (Mount this Panel to\na Block with an Inventory.)"}
+                }
+            },
+            {"de", new Dictionary<string, string>(){
+                    {"statUsedTag","Verwendeter Tag: {0}"}, // {0} => LCD Tag
+                    {"statLoad","Last: {0}% (Grenze: {1}%)"}, // {0} => current load, {1} => max load
+                    {"statInstructions","Befehle: {0}/{1}"}, // {0} => current instructions, {1} => max instructions (50.000)
+                    {"statRuntime","Laufzeit (ms): {0}"}, //{0} => script runtime (realtime) in milliseconds
+                    {"statProgressed","Verabeitet: {0} Panels"}, // {0} => number of panels progressed in this run
+                    {"statQueued","In der Warteschlange: {0} Panels"}, // {0} => number of panels delayed to the next run
+                    {"lcdStatSingleInventory","= Bacon's automatische Füllstandsanzeige =\nInventar Block: {0}\nletzte Aktualisierung: {1}\nInventar Füllstand: ~{2}%"}, // {0} => Name of the Block with the inventory, {1} => datetime of last update, {2} => fill level of the inventory in percent
+                    {"lcdStatDoubleInventory","= Bacon's automatische Füllstandsanzeige =\nInventar Block: {0}\nletzte Aktualisierung: {1}\nInventar #0 Füllstand: ~{2}%\nInventar #1 Füllstand: ~{3}%"}, // {0} => Name of the Block with the inventory, {1} => datetime of last update, {2} => fill level of 1st the inventory in percent, {3} => fill level of 2nd the inventory in percent
+                    {"warnNoInventory","Frachtblock nicht gefunden. (Bau das LCD an einen Block mit Inventar.)"}
+                }
+            }
+        };
+
+        #endregion text
 
         public Program()
         {
@@ -205,13 +247,13 @@ namespace BaconsFillLevelDisplay
 
         public void statisics()
         {
-            Echo(string.Format(@"used Tag: {0}", lcdTag));
-            Echo(string.Format(@"Load: {0}% (Limit: {1}%)", (Runtime.CurrentInstructionCount * 100) / Runtime.MaxInstructionCount, (LOAD_LIMIT * 100) / Runtime.MaxInstructionCount));
-            Echo(string.Format(@"Instructions: {0}/{1}", Runtime.CurrentInstructionCount, Runtime.MaxInstructionCount));
-            Echo(string.Format(@"Runtime (ms): {0}", (DateTime.Now - Start).TotalMilliseconds));
+            Echo(getText("statUsedTag", lcdTag));
+            Echo(getText("statLoad", (Runtime.CurrentInstructionCount * 100) / Runtime.MaxInstructionCount, (LOAD_LIMIT * 100) / Runtime.MaxInstructionCount));
+            Echo(getText("statInstructions", Runtime.CurrentInstructionCount, Runtime.MaxInstructionCount));
+            Echo(getText("statRuntime", (DateTime.Now - Start).TotalMilliseconds));
             
-            Echo(string.Format(@"Progressed: {0} Panels", panelProgressCount));
-            Echo(string.Format(@"Queued: {0} Panels",PanelQueue.Count));
+            Echo(getText("statProgressed", panelProgressCount));
+            Echo(getText("statQueued",PanelQueue.Count));
         }       
 
         public void enqueuePanels()
@@ -238,14 +280,22 @@ namespace BaconsFillLevelDisplay
                     int fillLevel0 = 0;
                     int fillLevel1 = 0;
                     string fillBar = getFillLevelBarForBlock(Cargo, out fillLevel0, out fillLevel1);
-                    Panel.CustomData = string.Format("= Bacon's autoamted Fill Level Display =\nInventory Block: {0}\nLast Update: {1}\nLevel Inventory #0: ~{2}%\nLevel Inventory #1: ~{3}%", Cargo.CustomName, DateTime.Now, fillLevel0, fillLevel1);
+                    switch (Cargo.InventoryCount)
+                    {
+                        case 1:
+                            Panel.CustomData = getText("lcdStatSingleInventory", Cargo.CustomName, DateTime.Now, fillLevel0);
+                            break;
+                        case 2:
+                            Panel.CustomData = getText("lcdStatDoubleInventory", Cargo.CustomName, DateTime.Now, fillLevel0, fillLevel1);
+                            break;
+                    }
                     Panel.WritePublicText(fillBar);
                     Panel.SetValueFloat("FontSize", fontSizeFuelBar);
                     Panel.SetValue<long>("Font", fontIdMonospaced);
                     Panel.ShowPublicTextOnScreen();
                 } else
                 {
-                    Panel.WritePublicText("Container not found. (Mount this Panel to\na Block with an Inventory.)");
+                    Panel.WritePublicText(getText("warnNoInventory"));
                     Panel.SetValueFloat("FontSize", fontSizeText);
                     Panel.SetValue<long>("Font", fontIdRed);
                     Panel.ShowPublicTextOnScreen();
@@ -594,11 +644,45 @@ namespace BaconsFillLevelDisplay
                                 }
                             }
                             break;
+                        case CFG_LANGUAGE:
+                            if (isLanguageAvailable(KeyValue[1].Trim().ToLowerInvariant()))
+                            {
+                                language = KeyValue[1].Trim().ToLowerInvariant();
+                            }
+                            break;
                         default:
                             break;
                     }
                 }
             }
+        }
+
+        string getText(string key, params object[] values)
+        {
+            string format = Text[language]?[key];
+            string result = string.Format("Error: No translation for '{0}' available.", key);
+            if(format == null)
+            {
+                format = Text[defaultLanguage]?[key];
+            }
+            if (format != null)
+            {
+                try
+                {
+                    result = string.Format(format, values);
+                }
+                catch (Exception e)
+                {
+                    result = "Error: " + e.Message;
+                }
+            }
+
+            return result;
+        }
+
+        bool isLanguageAvailable(string key)
+        {
+            return Text.ContainsKey(key);
         }
 
         public bool TryParseColor(string value, out char color)
@@ -627,6 +711,7 @@ namespace BaconsFillLevelDisplay
             stateColorOff = defaultStateColorOff;
             stateColorIdle = defaultStateColorIdle;
             stateColorOn = defaultStateColorOn;
+            language = defaultLanguage;
         }
 
         public void writeDefaultConfigToCustomData()
@@ -646,7 +731,7 @@ namespace BaconsFillLevelDisplay
             slug.AppendLine(string.Format(@"{0}:", CFG_STATE_COLOR_IDLE));
             slug.AppendLine(string.Format(@"{0}:", CFG_STATE_COLOR_ON));
 
-
+            slug.AppendLine(string.Format(@"{0}:", CFG_LANGUAGE));
             Me.CustomData = slug.ToString();
         }
         
