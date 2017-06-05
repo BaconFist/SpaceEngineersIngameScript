@@ -47,6 +47,7 @@
     <Compile Include="Scripts\GFXLib.cs" />
     <Compile Include="Scripts\GPSDistance.cs" />
     <Compile Include="Scripts\Log4PB.cs" />
+    <Compile Include="Scripts\Log4PB_TEST.cs" />
     <Compile Include="Scripts\PrecisePropertyHandling.cs" />
     <Compile Include="Scripts\RemoteTerminal.cs" />
     <Compile Include="Scripts\ShipyardGateControl.cs" />
