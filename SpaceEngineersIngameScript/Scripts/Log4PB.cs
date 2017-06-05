@@ -35,13 +35,14 @@ namespace Log4PB
                 {"{CurrentInstructionCount}","{4}"},
                 {"{MaxInstructionCount}","{5}"},
                 {"{Message}","{6}"},
-                {"{Stack}","{7}" }
+                {"{Stack}","{7}" },
+                {"Origin}", "{8}" }
             };
             private Stack<string> Stack = new Stack<string>();
             public byte Filter;
             public readonly Dictionary<BMyAppenderBase, string> Appenders = new Dictionary<BMyAppenderBase, string>();
-            private string _defaultFormat = @"[{0}-{1}/{2}][{3}][{4}/{5}][{7}] {6}";
-            private string _formatRaw = @"[{Date}-{Time}/{Milliseconds}][{Severity}][{CurrentInstructionCount}/{MaxInstructionCount}][{Stack}] {Message}";
+            private string _defaultFormat = @"[{0}-{1}/{2}][{3}][{4}/{5}][{8}][{7}] {6}";
+            private string _formatRaw = @"[{Date}-{Time}/{Milliseconds}][{Severity}][{CurrentInstructionCount}/{MaxInstructionCount}][{Origin}][{Stack}] {Message}";
             public string Format {
                 get { return _formatRaw; }
                 set {
@@ -163,7 +164,8 @@ namespace Log4PB
                     Assembly.Runtime.CurrentInstructionCount,
                     Assembly.Runtime.MaxInstructionCount,
                     string.Format(format, values),
-                    StackToString()
+                    StackToString(),
+                    Assembly.Me.CustomName
                 );
                 foreach(var item in Appenders)
                 {
@@ -185,7 +187,9 @@ namespace Log4PB
                 public int MaxInstructionCount;
                 public string Message;
                 public string Stack;
-                public BMyMessage(string Date, string Time, string Milliseconds, string Severity, int CurrentInstructionCount, int MaxInstructionCount, string Message, string Stack)
+                public string Origin;
+
+                public BMyMessage(string Date, string Time, string Milliseconds, string Severity, int CurrentInstructionCount, int MaxInstructionCount, string Message, string Stack, string Origin)
                 {
                     this.Date = Date;
                     this.Time = Time;
@@ -195,6 +199,7 @@ namespace Log4PB
                     this.MaxInstructionCount = MaxInstructionCount;
                     this.Message = Message;
                     this.Stack = Stack;
+                    this.Origin = Origin;
                 }
                 public override string ToString()
                 {
@@ -211,7 +216,8 @@ namespace Log4PB
                         CurrentInstructionCount,
                         MaxInstructionCount,
                         Message,
-                        Stack
+                        Stack,
+                        Origin
                         );
                 }
             }
