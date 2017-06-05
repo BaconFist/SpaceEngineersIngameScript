@@ -701,7 +701,7 @@ namespace BaconsFillLevelDisplay
 
         public void applyDefaultConfigValues()
         {
-            lcdTag = "[FLD]";
+            lcdTag = defaultLcdTag;
             barColorMax = defaultBarColorMax;
             barColorHigh = defaultBarColorHigh;
             barColorDefault = defaultBarColorDefault;
