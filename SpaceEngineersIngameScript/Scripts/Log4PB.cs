@@ -36,7 +36,7 @@ namespace Log4PB
                 {"{MaxInstructionCount}","{5}"},
                 {"{Message}","{6}"},
                 {"{Stack}","{7}" },
-                {"Origin}", "{8}" }
+                {"{Origin}", "{8}" }
             };
             private Stack<string> Stack = new Stack<string>();
             public byte Filter;
