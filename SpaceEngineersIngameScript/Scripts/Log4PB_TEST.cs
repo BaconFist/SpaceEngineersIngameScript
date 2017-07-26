@@ -17,32 +17,24 @@ namespace Log4PB_TEST
     public class Program : MyGridProgram
     {
         #region Game Code - Copy/Paste Code from this region into Block Script Window in Game
-        
+
+
+        /* 
+    This this script does nothing by it's own. 
+     This is a placeholder to keep trak of BMyLog4PB.
+   
+
+     Please go to http://forums.keenswh.com/threads/log4pb-logging-debugging-lib.7389240/ 
+     for more information.                 
+*/
         public void Main(string argument)
         {
+            //initialize the logger (logging all kinds of messages to PB's CustomData)
             BMyLog4PB Log = new BMyLog4PB(this, BMyLog4PB.E_ALL, new BMyLog4PB.BMyCustomDataAppender(this));
-            Log.PushStack("Level 1");
-            Log.Debug("Debug 1");
-            Log.Error("Error 1");
-            Log.Fatal("Fatal 1");
-            Log.Info("Info 1");
-            Log.Trace("Trace 1");
-            Log.Warn("Warn 1");
-            Log.PushStack("Level 2");
-            Log.Debug("Debug 2");
-            Log.Error("Error 2");
-            Log.Fatal("Fatal 2");
-            Log.Info("Info 2");
-            Log.Trace("Trace 2");
-            Log.Warn("Warn 2");
-            Log.PopStack();
-            Log.Debug("Debug 1");
-            Log.Error("Error 1");
-            Log.Fatal("Fatal 1");
-            Log.Info("Info 1");
-            Log.Trace("Trace 1");
-            Log.Warn("Warn 1");
-            Log.PopStack();
+
+            Log.Info("This message will appera in this PBs CustomData.");
+
+            // output all the log messages
             Log.Flush();
         }
 
