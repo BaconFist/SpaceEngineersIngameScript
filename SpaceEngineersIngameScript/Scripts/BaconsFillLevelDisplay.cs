@@ -209,7 +209,9 @@ namespace BaconsFillLevelDisplay
                     {"statQueued","Queued: {0} Panels"}, // {0} => number of panels delayed to the next run
                     {"lcdStatSingleInventory","= Bacon's autoamted Fill Level Display =\nInventory Block: {0}\nLast Update: {1}\nLevel Inventory: ~{2}%"}, // {0} => Name of the Block with the inventory, {1} => datetime of last update, {2} => fill level of the inventory in percent
                     {"lcdStatDoubleInventory","= Bacon's autoamted Fill Level Display =\nInventory Block: {0}\nLast Update: {1}\nLevel Inventory #0: ~{2}%\nLevel Inventory #1: ~{3}%"}, // {0} => Name of the Block with the inventory, {1} => datetime of last update, {2} => fill level of 1st the inventory in percent, {3} => fill level of 2nd the inventory in percent
-                    {"warnNoInventory","Container not found. (Mount this Panel to\na Block with an Inventory.)"}
+                    {"warnNoInventory","Container not found. (Mount this Panel to\na Block with an Inventory.)"},
+                    {"lcdTitleStatSingle","~{0}% in {1}" },
+                    {"lcdTitleStatDouble","IN: ~{0}% | OUT ~{1}% in {2}" }
                 }
             },
             {"de", new Dictionary<string, string>(){
@@ -221,7 +223,9 @@ namespace BaconsFillLevelDisplay
                     {"statQueued","In der Warteschlange: {0} Panels"}, // {0} => number of panels delayed to the next run
                     {"lcdStatSingleInventory","= Bacon's automatische Füllstandsanzeige =\nInventar Block: {0}\nletzte Aktualisierung: {1}\nInventar Füllstand: ~{2}%"}, // {0} => Name of the Block with the inventory, {1} => datetime of last update, {2} => fill level of the inventory in percent
                     {"lcdStatDoubleInventory","= Bacon's automatische Füllstandsanzeige =\nInventar Block: {0}\nletzte Aktualisierung: {1}\nInventar #0 Füllstand: ~{2}%\nInventar #1 Füllstand: ~{3}%"}, // {0} => Name of the Block with the inventory, {1} => datetime of last update, {2} => fill level of 1st the inventory in percent, {3} => fill level of 2nd the inventory in percent
-                    {"warnNoInventory","Frachtblock nicht gefunden. (Bau das LCD an einen Block mit Inventar.)"}
+                    {"warnNoInventory","Frachtblock nicht gefunden. (Bau das LCD an einen Block mit Inventar.)"},
+                    {"lcdTitleStatSingle","~{0}% in {1}" },
+                    {"lcdTitleStatDouble","REIN: ~{0}% | RAUS ~{1}% in {2}" }
                 }
             }
         };
@@ -296,9 +300,11 @@ namespace BaconsFillLevelDisplay
                     {
                         case 1:
                             Panel.CustomData = getText("lcdStatSingleInventory", Cargo.CustomName, DateTime.Now, fillLevel0);
+                            Panel.WritePublicTitle(getText("lcdTitleStatSingle", fillLevel0, Cargo.CustomName));
                             break;
                         case 2:
                             Panel.CustomData = getText("lcdStatDoubleInventory", Cargo.CustomName, DateTime.Now, fillLevel0, fillLevel1);
+                            Panel.WritePublicTitle(getText("lcdTitleStatDouble", fillLevel0, fillLevel1, Cargo.CustomName));
                             break;
                     }
                     Panel.WritePublicText(fillBar);
@@ -307,6 +313,7 @@ namespace BaconsFillLevelDisplay
                     Panel.ShowPublicTextOnScreen();
                 } else
                 {
+                    Panel.WritePublicTitle("");
                     Panel.WritePublicText(getText("warnNoInventory"));
                     Panel.SetValueFloat("FontSize", fontSizeText);
                     Panel.SetValue<long>("Font", fontIdRed);
