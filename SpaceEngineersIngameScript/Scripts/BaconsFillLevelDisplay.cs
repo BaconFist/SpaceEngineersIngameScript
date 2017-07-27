@@ -110,7 +110,13 @@ namespace BaconsFillLevelDisplay
                     where L must be an available language code
                     available Language codes:
                         en: english
-                        de: german                
+                        de: german     
+            
+                "opt.scanlimit: i"
+                    defaults to 1
+                    sets how far the script should look behind a panel to find something
+                    where i must be integer greater "0"
+                    example: set to "2" if you have a layer of armor between LCD and cargo container.
 
         */
 
@@ -146,6 +152,8 @@ namespace BaconsFillLevelDisplay
         const string CFG_STATE_COLOR_ON = "state.color.on";
 
         const string CFG_LANGUAGE = "language";
+
+        const string CFG_OPT_SCANLIMIT = "opt.scanlimit";
         #endregion CustomData config Keys
 
         #region config
@@ -165,6 +173,8 @@ namespace BaconsFillLevelDisplay
         char stateColorOn;
 
         string language;
+
+        int optScanLimit = 1;
         #endregion config
 
         #region config defaults
@@ -184,6 +194,8 @@ namespace BaconsFillLevelDisplay
         char defaultStateColorOn = (char) (0xe100 + (0 << 6) + (4 << 3) + 0); //green
 
         string defaultLanguage = "en";
+
+        int defaultOptScanLimit = 1;
         #endregion config defaults
 
         #region text
@@ -464,12 +476,19 @@ namespace BaconsFillLevelDisplay
         public IMyTerminalBlock getBlockBehind(IMyTextPanel Panel)
         {
             IMyTerminalBlock Container;
-            if(tryFindCargoAtPosition(Panel.Position + getMountPointVector(Panel), Panel.CubeGrid, out Container)){
-                return Container;
-            } else
+            Vector3I MPV = getMountPointVector(Panel);
+            Vector3I LastPos = Panel.Position;
+
+            for(int i = 0; i < optScanLimit; i++)
             {
-                return null;
+                LastPos = LastPos + MPV;
+                if (tryFindCargoAtPosition(LastPos, Panel.CubeGrid, out Container))
+                {
+                    return Container;
+                }                
             }
+
+            return null;
         }
 
         public Vector3I getMountPointVector(IMyTerminalBlock Block)
@@ -650,6 +669,13 @@ namespace BaconsFillLevelDisplay
                                 language = KeyValue[1].Trim().ToLowerInvariant();
                             }
                             break;
+                        case CFG_OPT_SCANLIMIT:
+                            int buffer = 0;
+                            if(int.TryParse(KeyValue[1].Trim(), out buffer) && buffer > 0)
+                            {
+                                optScanLimit = buffer;
+                            }
+                            break;
                         default:
                             break;
                     }
@@ -712,6 +738,7 @@ namespace BaconsFillLevelDisplay
             stateColorIdle = defaultStateColorIdle;
             stateColorOn = defaultStateColorOn;
             language = defaultLanguage;
+            optScanLimit = defaultOptScanLimit;
         }
 
         public void writeDefaultConfigToCustomData()
@@ -732,6 +759,8 @@ namespace BaconsFillLevelDisplay
             slug.AppendLine(string.Format(@"{0}:", CFG_STATE_COLOR_ON));
 
             slug.AppendLine(string.Format(@"{0}:", CFG_LANGUAGE));
+
+            slug.AppendLine(string.Format(@"{0}:", CFG_OPT_SCANLIMIT));
             Me.CustomData = slug.ToString();
         }
         
