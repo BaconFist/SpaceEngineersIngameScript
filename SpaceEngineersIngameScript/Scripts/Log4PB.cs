@@ -17,7 +17,7 @@ namespace Log4PB
     public class Program : MyGridProgram
     {
         #region Game Code - Copy/Paste Code from this region into Block Script Window in Game
-        public class BMyLog4PB
+		public class BMyLog4PB
         {
             public const byte E_ALL = 63;
             public const byte E_TRACE = 32; //Lowest	Finest-grained informational events.
@@ -26,6 +26,14 @@ namespace Log4PB
             public const byte E_WARN = 4; //Potentially harmful situations which still allow the application to continue running.
             public const byte E_ERROR = 2; //Error events that might still allow the application to continue running.
             public const byte E_FATAL = 1; //Highest	Very severe error events that will presumably lead the application to abort.
+
+            public BMyLog4PB IfFatal{get{return If(E_FATAL);}}
+            public BMyLog4PB IfError{get{return If(E_ERROR);}}
+            public BMyLog4PB IfWarn{get{return If(E_WARN);}}
+            public BMyLog4PB IfInfo{get{return If(E_INFO);}}
+            public BMyLog4PB IfDebug{get{return If(E_DEBUG);}}
+            public BMyLog4PB IfTrace{get{return If(E_TRACE);}}
+
 
             private Dictionary<string, string> formatMarkerMap = new Dictionary<string, string>() {
                 {"{Date}","{0}"},
