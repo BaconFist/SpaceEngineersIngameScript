@@ -91,8 +91,8 @@ namespace CruiseControl
             UpdateForwardVelocityOverride();
             
             StringBuilder Info = getInfo();
-            StringBuilder Help = Info;
-            Help.AppendStringBuilder(getHelptext());
+            StringBuilder Help = new StringBuilder(Info.ToString());
+            Help.Append(getHelptext().ToString());
             Me.CustomData = Help.ToString();
             Echo(Help.ToString());
             List<IMyTextPanel> TextPanels = new List<IMyTextPanel>();
