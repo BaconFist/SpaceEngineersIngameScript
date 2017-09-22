@@ -31,10 +31,13 @@ namespace CruiseControl
 
         const string OPT_DEADZONE = "DeadZone";
         const string OPT_THRUSTMULTI = "ThrustMultiplicator";
+        const string OPT_INC = "inc";
+        const string OPT_DEC = "dec";
 
         const string PROPETY_OVERRIDE = "Override";
 
         BaconArgs Args;
+        IMyShipController lastUsedController = null;
 
         float thrustMultiplicator = 3;
         float deadZone = 0.25f;
@@ -42,11 +45,25 @@ namespace CruiseControl
 
         float currentShipSpeed = 0;
         IMyShipController shipController;
-      
+
+        List<IMyThrust> AcceleratoinThruster = new List<IMyThrust>();
+        List<IMyThrust> DeceleratoinThruster = new List<IMyThrust>();
 
         public void Main(string argument)
         {
             run(argument);
+        }
+
+        private void resetThrusters()
+        {
+            List<IMyThrust> Thrustes = new List<IMyThrust>();
+            GridTerminalSystem.GetBlocksOfType<IMyThrust>(Thrustes);
+            foreach (var thruster in Thrustes)    
+            {
+                thruster.SetValueFloat("Override", 0f);
+            }
+            AcceleratoinThruster = new List<IMyThrust>();
+            DeceleratoinThruster = new List<IMyThrust>();
         }
 
         public void printInfo()
@@ -59,6 +76,8 @@ namespace CruiseControl
             info.AppendLine(string.Format(@"Thrust multiplicator: {0}", thrustMultiplicator));
             info.AppendLine(string.Format(@"HELP:"));
             info.AppendLine(string.Format(@"* set target speed by passing it as an argument."));
+            info.AppendLine(string.Format(@"* increase target speed with --{0}=NUMBER.", OPT_INC));
+            info.AppendLine(string.Format(@"* decerase target speed with --{0}=NUMBER.", OPT_DEC));
             info.AppendLine(string.Format(@"* set DeadZone with --{0}=NUMBER", OPT_DEADZONE));
             info.AppendLine(string.Format(@"* set Thrust multiplicator with --{0}=NUMBER", OPT_THRUSTMULTI));
             info.AppendLine(string.Format(@"All settings will be saved until the script is recompiled."));
@@ -70,12 +89,51 @@ namespace CruiseControl
         public void run(string argument)
         {
             Args = BaconArgs.parse(argument);
+            UpdateSettingFromArguments();
+            
 
+            // update speed overrides
+            UpdateForwardVelocityOverride();
+
+            printInfo();
+            HUD();
+            lastUsedController = shipController;
+        }
+
+        public void HUD()
+        {
+            StringBuilder hud = new StringBuilder();
+            hud.AppendLine("CRUISDE CONTROL");
+            hud.AppendLine(string.Format("forward speed: {0}", currentShipSpeed));
+            hud.AppendLine(string.Format("target speed: {0}", targetSpeed));
+
+            List<IMyTextPanel> panels = new List<IMyTextPanel>();
+            GridTerminalSystem.GetBlocksOfType<IMyTextPanel>(panels, (p => p.CubeGrid.Equals(Me.CubeGrid) && p.CustomName.Contains("[BCCHUD]")));
+            foreach(IMyTextPanel panel in panels)
+            {
+                panel.ShowPublicTextOnScreen();
+                panel.WritePublicText(hud.ToString());
+            }
+        }
+
+        public void UpdateSettingFromArguments()
+        {
             // update target Speed
             float newSpeedTargetBuffer = 0;
+
             if (Args.hasArguments() && float.TryParse(Args.getArguments()[0], out newSpeedTargetBuffer))
             {
                 targetSpeed = newSpeedTargetBuffer;
+            }
+
+            if (Args.hasOption(OPT_INC) && float.TryParse(Args.getOption(OPT_INC)[0], out newSpeedTargetBuffer))
+            {
+                targetSpeed += newSpeedTargetBuffer;
+            }
+
+            if (Args.hasOption(OPT_DEC) && float.TryParse(Args.getOption(OPT_DEC)[0], out newSpeedTargetBuffer))
+            {
+                targetSpeed -= newSpeedTargetBuffer;
             }
 
             //update deadZone
@@ -91,13 +149,22 @@ namespace CruiseControl
             {
                 thrustMultiplicator = newThrustMultiplicatorBuffer;
             }
+        }
 
-            // update speed overrides
-            if (TryGetUsedController(out shipController) && TryGetForwardSpeed(out currentShipSpeed, shipController))
+        public void UpdateForwardVelocityOverride()
+        {
+            
+            if (TryGetUsedController(out shipController))
             {
+                if (!shipController.Equals(lastUsedController))
+                {
+                    resetThrusters();
+                }
+
                 List<IMyThrust> ThrustersAcceleration = findAccelerationThrusters(shipController);
                 List<IMyThrust> ThrustersDecelartion = findDecelerationThruster(shipController);
 
+                currentShipSpeed = getShipLinearVelocity(shipController, Base6Directions.Direction.Forward);
                 float speedDiff = Math.Abs(targetSpeed - currentShipSpeed);
 
                 shipController.ShowOnHUD = true;
@@ -130,7 +197,7 @@ namespace CruiseControl
                         }
                         foreach (IMyThrust Thrust in ThrustersDecelartion)
                         {
-                            Thrust.SetValueFloat(PROPETY_OVERRIDE, Math.Min(100, (currentShipSpeed - targetSpeed) * thrustMultiplicator));
+                            Thrust.SetValueFloat(PROPETY_OVERRIDE, getValueInRange(5,100, (currentShipSpeed - targetSpeed) * thrustMultiplicator));
                         }
                     }
                     else if (currentShipSpeed < targetSpeed)
@@ -142,56 +209,76 @@ namespace CruiseControl
                         }
                         foreach (IMyThrust Thrust in ThrustersAcceleration)
                         {
-                            Thrust.SetValueFloat(PROPETY_OVERRIDE, Math.Min(100, (targetSpeed - currentShipSpeed) * thrustMultiplicator));
+                            Thrust.SetValueFloat(PROPETY_OVERRIDE, getValueInRange(5,100, (targetSpeed - currentShipSpeed) * thrustMultiplicator));
                         }
 
                     }
                 }
             }
+        }
 
-            printInfo();
+        public float getValueInRange(float min, float max, float value)
+        {
+            return Math.Max(min,Math.Min(max,value));
         }
         
         public List<IMyThrust> findAccelerationThrusters(IMyShipController Controller)
         {
-            List<IMyThrust> Buffer = new List<IMyThrust>();
-            Vector3I forwardVector = getShipControllerForwardVector(Controller);
-            GridTerminalSystem.GetBlocksOfType<IMyThrust>(Buffer, (t => 
-                t.CubeGrid.Equals(Me.CubeGrid)
-                && !(t.ThrustOverride == 0 && t.CurrentThrust > 0)
-                && getThrustDirection(t).Equals(forwardVector)            
-            ));
-            return Buffer;
+            if (AcceleratoinThruster.Count == 0)
+            {
+                Vector3I forwardVector = getShipControllerForwardVector(Controller);
+                GridTerminalSystem.GetBlocksOfType<IMyThrust>(AcceleratoinThruster, (t =>
+                    t.CubeGrid.Equals(Me.CubeGrid)
+                    && !(t.ThrustOverride == 0 && t.CurrentThrust > 0)
+                    && getThrustDirection(t).Equals(forwardVector)
+                ));
+            }
+            return AcceleratoinThruster;
         }
 
         public List<IMyThrust> findDecelerationThruster(IMyShipController Controller)
         {
-            List<IMyThrust> Buffer = new List<IMyThrust>();
-            Vector3I backwardVector = getShipControllerBackwardVector(Controller);
-            GridTerminalSystem.GetBlocksOfType<IMyThrust>(Buffer, (t =>
-                t.CubeGrid.Equals(Me.CubeGrid)
-                && !(t.ThrustOverride == 0 && t.CurrentThrust > 0)
-                && getThrustDirection(t).Equals(backwardVector)
-            ));
-            return Buffer;
-        }
-
-        public bool TryGetForwardSpeed(out float speed, IMyShipController controller)
-        {
-            speed = 0;
-            try
+            if (DeceleratoinThruster.Count == 0)
             {
-                Vector3 forwardSpeed = Vector3.TransformNormal(controller.GetShipVelocities().LinearVelocity, Matrix.Transpose(controller.WorldMatrix));
-                speed = forwardSpeed.Z * -1;
-                
-                return true;
-            } catch (Exception e)
-            {
-                Echo(String.Format("{0}",e));
-                return false;
+                Vector3I backwardVector = getShipControllerBackwardVector(Controller);
+                GridTerminalSystem.GetBlocksOfType<IMyThrust>(DeceleratoinThruster, (t =>
+                    t.CubeGrid.Equals(Me.CubeGrid)
+                    && !(t.ThrustOverride == 0 && t.CurrentThrust > 0)
+                    && getThrustDirection(t).Equals(backwardVector)
+                ));
             }
+            return DeceleratoinThruster;
         }
 
+        public float getShipLinearVelocity(IMyShipController controller, Base6Directions.Direction direction)
+        {
+            Vector3 linearVelocity = Vector3.TransformNormal(controller.GetShipVelocities().LinearVelocity, Matrix.Transpose(controller.WorldMatrix));
+            float velocity = 0;
+            switch (direction)
+            {
+                case Base6Directions.Direction.Backward:
+                    velocity = linearVelocity.Z;
+                    break;
+                case Base6Directions.Direction.Down:
+                    velocity = linearVelocity.Y * -1;
+                    break;
+                case Base6Directions.Direction.Forward:
+                    velocity = linearVelocity.Z * -1; 
+                    break;
+                case Base6Directions.Direction.Left:
+                    velocity = linearVelocity.X * -1;
+                    break;
+                case Base6Directions.Direction.Right:
+                    velocity = linearVelocity.X;
+                    break;
+                case Base6Directions.Direction.Up:
+                    velocity = linearVelocity.Y;
+                    break;
+            }
+
+            return velocity;
+        }
+        
         public bool TryGetUsedController(out IMyShipController controller)
         {
             List<IMyShipController> buffer = new List<IMyShipController>();
@@ -211,71 +298,23 @@ namespace CruiseControl
         {
             Matrix localMatrix;
             ShipController.Orientation.GetMatrix(out localMatrix);
-            Vector3 buffer;
-            switch (ShipController.BlockDefinition.SubtypeName)
-            {
-                case "LargeBlockCockpit":
-                case "LargeBlockCockpitSeat":
-                case "SmallBlockCockpit":
-                case "DBSmallBlockFighterCockpit":
-                case "CockpitOpen":
-                case "LargeBlockRemoteControl":
-                case "SmallBlockRemoteControl":
-                default:
-                    buffer = localMatrix.Backward;
-                    break;
-            }
 
-            return new Vector3I(buffer);
+            return new Vector3I(localMatrix.Backward);
         }
 
         public Vector3I getShipControllerForwardVector(IMyShipController ShipController)
         {
             Matrix localMatrix;
             ShipController.Orientation.GetMatrix(out localMatrix);
-            Vector3 buffer;
-            switch (ShipController.BlockDefinition.SubtypeName)
-            {
-                case "LargeBlockCockpit":
-                case "LargeBlockCockpitSeat":
-                case "SmallBlockCockpit":
-                case "DBSmallBlockFighterCockpit":
-                case "CockpitOpen":
-                case "LargeBlockRemoteControl":
-                case "SmallBlockRemoteControl":
-                default:
-                    buffer = localMatrix.Forward;
-                    break;
-            }
-
-            return new Vector3I(buffer);
+            return new Vector3I(localMatrix.Forward);
         }
 
         public Vector3I getThrustDirection(IMyThrust Thruster)
         {
             Matrix localMatrix;
             Thruster.Orientation.GetMatrix(out localMatrix);
-            Vector3 buffer;
-            switch (Thruster.BlockDefinition.SubtypeName)
-            {
-                case "SmallBlockSmallThrust":
-                case "SmallBlockLargeThrust":
-                case "LargeBlockSmallThrust":
-                case "LargeBlockLargeThrust":
-                case "LargeBlockLargeHydrogenThrust":
-                case "LargeBlockSmallHydrogenThrust":
-                case "SmallBlockLargeHydrogenThrust":
-                case "SmallBlockSmallHydrogenThrust":
-                case "LargeBlockLargeAtmosphericThrust":
-                case "LargeBlockSmallAtmosphericThrust":
-                case "SmallBlockLargeAtmosphericThrust":
-                case "SmallBlockSmallAtmosphericThrust":
-                default:
-                    buffer = localMatrix.Backward;
-                    break;
-            }
-
-            return new Vector3I(buffer);
+         
+            return new Vector3I(localMatrix.Backward);
         }
 
         #region BaconArgs
