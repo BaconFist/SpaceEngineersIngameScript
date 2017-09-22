@@ -29,6 +29,8 @@ namespace CruiseControl
 
         */
 
+        const string LCD_TAG = "[BCC]";
+
         const string OPT_DEADZONE = "DeadZone";
         const string OPT_THRUSTMULTI = "ThrustMultiplicator";
         const string OPT_INC = "inc";
@@ -66,24 +68,17 @@ namespace CruiseControl
             DeceleratoinThruster = new List<IMyThrust>();
         }
 
-        public void printInfo()
+        public StringBuilder getHelptext()
         {
-            StringBuilder info = new StringBuilder();
-            info.AppendLine(string.Format(@"[Bacon's Cruise Control]"));
-            info.AppendLine(string.Format(@"Forward speed: {0} m/s", currentShipSpeed));
-            info.AppendLine(string.Format(@"Target speed: {0} m/s", targetSpeed));
-            info.AppendLine(string.Format(@"DeadZone: {0} m/s", deadZone));
-            info.AppendLine(string.Format(@"Thrust multiplicator: {0}", thrustMultiplicator));
-            info.AppendLine(string.Format(@"HELP:"));
-            info.AppendLine(string.Format(@"* set target speed by passing it as an argument."));
-            info.AppendLine(string.Format(@"* increase target speed with --{0}=NUMBER.", OPT_INC));
-            info.AppendLine(string.Format(@"* decerase target speed with --{0}=NUMBER.", OPT_DEC));
-            info.AppendLine(string.Format(@"* set DeadZone with --{0}=NUMBER", OPT_DEADZONE));
-            info.AppendLine(string.Format(@"* set Thrust multiplicator with --{0}=NUMBER", OPT_THRUSTMULTI));
-            info.AppendLine(string.Format(@"All settings will be saved until the script is recompiled."));
-
-            Me.CustomData = info.ToString();
-            Echo(info.ToString());
+            StringBuilder help = new StringBuilder();
+            help.AppendLine(string.Format(@"HELP:"));
+            help.AppendLine(string.Format(@"* set target speed by passing it as an argument."));
+            help.AppendLine(string.Format(@"* increase target speed with --{0}=NUMBER.", OPT_INC));
+            help.AppendLine(string.Format(@"* decerase target speed with --{0}=NUMBER.", OPT_DEC));
+            help.AppendLine(string.Format(@"* set DeadZone with --{0}=NUMBER", OPT_DEADZONE));
+            help.AppendLine(string.Format(@"* set Thrust multiplicator with --{0}=NUMBER", OPT_THRUSTMULTI));
+            help.AppendLine(string.Format(@"All settings will be saved until the script is recompiled."));
+            return help;
         }  
         
         public void run(string argument)
@@ -94,26 +89,32 @@ namespace CruiseControl
 
             // update speed overrides
             UpdateForwardVelocityOverride();
+            
+            StringBuilder Info = getInfo();
+            StringBuilder Help = Info;
+            Help.AppendStringBuilder(getHelptext());
+            Me.CustomData = Help.ToString();
+            Echo(Help.ToString());
+            List<IMyTextPanel> TextPanels = new List<IMyTextPanel>();
+            GridTerminalSystem.GetBlocksOfType<IMyTextPanel>(TextPanels, (p => p.CubeGrid.Equals(Me.CubeGrid) && p.CustomName.Contains(LCD_TAG)));
+            foreach (IMyTextPanel Panel in TextPanels)
+            {
+                Panel.WritePublicText(Info.ToString());
+                Panel.ShowPublicTextOnScreen();
+            }
 
-            printInfo();
-            HUD();
             lastUsedController = shipController;
         }
 
-        public void HUD()
+        public StringBuilder getInfo()
         {
-            StringBuilder hud = new StringBuilder();
-            hud.AppendLine("CRUISDE CONTROL");
-            hud.AppendLine(string.Format("forward speed: {0}", currentShipSpeed));
-            hud.AppendLine(string.Format("target speed: {0}", targetSpeed));
-
-            List<IMyTextPanel> panels = new List<IMyTextPanel>();
-            GridTerminalSystem.GetBlocksOfType<IMyTextPanel>(panels, (p => p.CubeGrid.Equals(Me.CubeGrid) && p.CustomName.Contains("[BCCHUD]")));
-            foreach(IMyTextPanel panel in panels)
-            {
-                panel.ShowPublicTextOnScreen();
-                panel.WritePublicText(hud.ToString());
-            }
+            StringBuilder lcdText = new StringBuilder();
+            lcdText.AppendLine(string.Format(@"[Bacon's Cruise Control]"));
+            lcdText.AppendLine(string.Format(@"Forward speed: {0} m/s", currentShipSpeed));
+            lcdText.AppendLine(string.Format(@"Target speed: {0} m/s", targetSpeed));
+            lcdText.AppendLine(string.Format(@"DeadZone: {0} m/s", deadZone));
+            lcdText.AppendLine(string.Format(@"Thrust multiplicator: {0}", thrustMultiplicator));
+            return lcdText;
         }
 
         public void UpdateSettingFromArguments()
@@ -167,13 +168,13 @@ namespace CruiseControl
                 currentShipSpeed = getShipLinearVelocity(shipController, Base6Directions.Direction.Forward);
                 float speedDiff = Math.Abs(targetSpeed - currentShipSpeed);
 
-                shipController.ShowOnHUD = true;
-                shipController.CustomName = String.Format(
-                    @"Speed: {0}, Target: {1}, Diff: {2}",
-                   currentShipSpeed,
-                   targetSpeed,
-                   speedDiff
-                    );
+                //shipController.ShowOnHUD = true;
+                //shipController.CustomName = String.Format(
+                //    @"Speed: {0}, Target: {1}, Diff: {2}",
+                //   currentShipSpeed,
+                //   targetSpeed,
+                //   speedDiff
+                //    );
 
                 if (targetSpeed == 0)
                 {
@@ -197,7 +198,7 @@ namespace CruiseControl
                         }
                         foreach (IMyThrust Thrust in ThrustersDecelartion)
                         {
-                            Thrust.SetValueFloat(PROPETY_OVERRIDE, getValueInRange(5,100, (currentShipSpeed - targetSpeed) * thrustMultiplicator));
+                            Thrust.SetValueFloat(PROPETY_OVERRIDE, getValueInRange(5,100, speedDiff * thrustMultiplicator));
                         }
                     }
                     else if (currentShipSpeed < targetSpeed)
@@ -209,7 +210,7 @@ namespace CruiseControl
                         }
                         foreach (IMyThrust Thrust in ThrustersAcceleration)
                         {
-                            Thrust.SetValueFloat(PROPETY_OVERRIDE, getValueInRange(5,100, (targetSpeed - currentShipSpeed) * thrustMultiplicator));
+                            Thrust.SetValueFloat(PROPETY_OVERRIDE, getValueInRange(5,100, speedDiff * thrustMultiplicator));
                         }
 
                     }
