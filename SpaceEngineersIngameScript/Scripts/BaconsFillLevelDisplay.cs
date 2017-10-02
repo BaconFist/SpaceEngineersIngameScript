@@ -87,7 +87,7 @@ namespace BaconsFillLevelDisplay
                 "state.show:bool"
                     defaults to true
                     enables/disables the border indicating the block state for production blocks
-                    where bool must be any of [true,on,yes,y,1] to enable, anything else will disable this option.
+                    where bool must be true or false
 
                 "state.color.off:r,g,b"
                     defaults to red(4,,00)
@@ -118,6 +118,11 @@ namespace BaconsFillLevelDisplay
                     where i must be integer greater "0"
                     example: set to "2" if you have a layer of armor between LCD and cargo container.
 
+                "opt.allowConnectedGrid: B"    
+                    defaults to FALSE
+                    enable to scan for Displays on connected grids
+                    where B must be TRUE or FALSE
+                    example: set to TRUE if you want to scan for diplays mounted to container on a rotor or another ship
         */
 
         Dictionary<IMyTextPanel, IMyTerminalBlock> PanelToCargoMap = new Dictionary<IMyTextPanel, IMyTerminalBlock>();
@@ -154,6 +159,8 @@ namespace BaconsFillLevelDisplay
         const string CFG_LANGUAGE = "language";
 
         const string CFG_OPT_SCANLIMIT = "opt.scanlimit";
+
+        const string CFG_ALLOW_CONNECTED_GRID = "opt.allowConnectedGrid";
         #endregion CustomData config Keys
 
         #region config
@@ -175,6 +182,8 @@ namespace BaconsFillLevelDisplay
         string language;
 
         int optScanLimit = 1;
+
+        bool allowConnectedGrid;
         #endregion config
 
         #region config defaults
@@ -196,6 +205,8 @@ namespace BaconsFillLevelDisplay
         string defaultLanguage = "en";
 
         int defaultOptScanLimit = 1;
+
+        bool defaultAllowConnectedGrid = false;
         #endregion config defaults
 
         #region text
@@ -649,25 +660,9 @@ namespace BaconsFillLevelDisplay
                             }
                             break;
                         case CFG_STATE_SHOW:
-                            if (KeyValue[1].Trim().Length == 0)
-                            {
-                                showBlockState = defaultShowBlockState;
-                            }
-                            else
-                            {
-                                switch (KeyValue[1].Trim().ToLowerInvariant())
-                                {
-                                    case "true":
-                                    case "on":
-                                    case "yes":
-                                    case "y":
-                                    case "1":
-                                        showBlockState = true;
-                                        break;
-                                    default:
-                                        showBlockState = false;
-                                        break;
-                                }
+                            bool buffer:
+                            if(bool.TryParse(KeyValue[1].Trim(), out buffer)){
+                                showBlockState = buffer;
                             }
                             break;
                         case CFG_LANGUAGE:
@@ -681,6 +676,12 @@ namespace BaconsFillLevelDisplay
                             if(int.TryParse(KeyValue[1].Trim(), out buffer) && buffer > 0)
                             {
                                 optScanLimit = buffer;
+                            }
+                            break;
+                        case CFG_ALLOW_CONNECTED_GRID:
+                            bool buffer:
+                            if(bool.TryParse(KeyValue[1].Trim(), out buffer)){
+                                allowConnectedGrid = buffer;
                             }
                             break;
                         default:
@@ -768,6 +769,9 @@ namespace BaconsFillLevelDisplay
             slug.AppendLine(string.Format(@"{0}:", CFG_LANGUAGE));
 
             slug.AppendLine(string.Format(@"{0}:", CFG_OPT_SCANLIMIT));
+
+            slug.AppendLine(string.Format(@"{0}:", CFG_ALLOW_CONNECTED_GRID));
+
             Me.CustomData = slug.ToString();
         }
         
