@@ -67,6 +67,7 @@
     <Compile Include="Scripts\Snippet_CustomDataManager.cs" />
     <Compile Include="Scripts\Snippet_DetailedInfo.cs" />
     <Compile Include="Scripts\SolarLightSwitch.cs" />
+    <Compile Include="Scripts\TestZeug.cs" />
     <Compile Include="Template\IngameScript.cs" />
   </ItemGroup>
   <ItemGroup>
