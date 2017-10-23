@@ -36,14 +36,12 @@ namespace CruiseControl
         const string OPT_DEADZONE = "DeadZone";
         const string OPT_INC = "inc";
         const string OPT_DEC = "dec";
-        const string OPT_ACCTIME = "AccelerationTime";
 
         const string PROPETY_OVERRIDE = "Override";
 
         BaconArgs Args;
         IMyShipController lastUsedController = null;
 
-        float accelerationTime = 5;
         float deadZone = 0.0f;
         float targetSpeed = 0;
 
@@ -55,8 +53,15 @@ namespace CruiseControl
 
         const float NEWTON_PER_KG = 9.8066500286389f;
 
+        float info_newtons_min = 0f;
+        float info_newtons_available = 0f;
+        float info_override = 0f;
+
         public void Main(string argument)
         {
+            info_newtons_min = 0f;
+            info_newtons_available = 0f;
+            info_override = 0f;
             run(argument);
         }
 
@@ -77,7 +82,6 @@ namespace CruiseControl
             help.AppendLine(string.Format(@"* increase target speed with --{0}=NUMBER.", OPT_INC));
             help.AppendLine(string.Format(@"* decerase target speed with --{0}=NUMBER.", OPT_DEC));
             help.AppendLine(string.Format(@"* set DeadZone with --{0}=NUMBER", OPT_DEADZONE));
-            help.AppendLine(string.Format(@"* set desired acceleration time with --{0}=NUMBER", OPT_ACCTIME));
             
             help.AppendLine(string.Format(@"All settings will be saved until the script is recompiled."));
             return help;
@@ -111,13 +115,32 @@ namespace CruiseControl
         private StringBuilder getInfo()
         {
             StringBuilder lcdText = new StringBuilder();
-            lcdText.AppendLine(string.Format(@"Forward speed: {0} m/s", currentShipSpeed));
-            lcdText.AppendLine(string.Format(@"Target speed: {0} m/s", targetSpeed));
-            lcdText.AppendLine(string.Format(@"DeadZone: {0} m/s", deadZone));
-            lcdText.AppendLine(string.Format(@"AccelerationTime: {0} s ", accelerationTime));
+            lcdText.AppendLine(string.Format(@"Forward speed: (m/s) {0:0.00}", Math.Round(currentShipSpeed,2)));
+            lcdText.AppendLine(string.Format(@"Target speed: (m/s) {0:0.00}", Math.Round(targetSpeed, 2)));
+            lcdText.AppendLine(string.Format(@"DeadZone: (m/s) {0:0.00}", Math.Round(deadZone, 2)));
+            lcdText.AppendLine(string.Format(@"Force Applied: {0}", FormatNewtons(info_newtons_min)));
+            lcdText.AppendLine(string.Format(@"Force Available: {0}", FormatNewtons(info_newtons_available)));
+            lcdText.AppendLine(string.Format(@"Override: (%) {0} ", Math.Round(info_override, 2)));
             return lcdText;
         }
 
+        private string FormatNewtons(float newtons)
+        {
+            if(newtons >= 1000)
+            {
+                return string.Format("(KN) {0:000.00}", Math.Round(newtons / 1000, 2));
+            }
+            if (newtons >= 1000000)
+            {
+                return string.Format("(MN) {0:000.00}", Math.Round(newtons / 1000000, 2));
+            }
+            if (newtons >= 1000000000)
+            {
+                return string.Format("(GN) {0:000.00}", Math.Round(newtons / 1000000000, 2));
+            }
+            return string.Format("(N) {0:000.00}", newtons);
+        }
+        
         private void UpdateSettingFromArguments()
         {
             // update target Speed 
@@ -144,13 +167,6 @@ namespace CruiseControl
             {
                 deadZone = newDeadZoneBuffer;
             }
-
-            //update thrust multiplicator 
-            float newAccelerationTimeBuffer = 0f;
-            if (Args.hasOption(OPT_ACCTIME) && float.TryParse(Args.getOption(OPT_ACCTIME)[0], out newAccelerationTimeBuffer))
-            {
-                accelerationTime = newAccelerationTimeBuffer;
-            }
         }
 
         private void UpdateForwardVelocityOverride()
@@ -173,33 +189,46 @@ namespace CruiseControl
                 {
                     BatchApplyThrustOverride(ThrustersAcceleration, 0f);
                     BatchApplyThrustOverride(ThrustersDecelartion, 0f);
+                    info_override = 0f;
                 }
                 else if (deadZone < speedDiff)
                 {
-                    float newOverrideValue = Math.Max(5f, Math.Min(100f, GetThrustForceOverrideBySpeedDifference(shipController, ThrustersAcceleration, speedDiff, 5)));
 
                     if (targetSpeed < currentShipSpeed)
                     {
                         //decelerate 
-                        BatchApplyThrustOverride(ThrustersAcceleration, 0f);
-                        BatchApplyThrustOverride(ThrustersDecelartion, Math.Max(5f, Math.Min(100f, GetThrustForceOverrideBySpeedDifference(shipController, ThrustersDecelartion, speedDiff, accelerationTime))));
+                        BatchApplyThrustOverride(ThrustersAcceleration, 5f);
+                        float decelOverride = Math.Max(5f, Math.Min(100f, GetThrustForceOverrideBySpeedDifference(shipController, ThrustersDecelartion, speedDiff)));
+                        info_override = decelOverride;
+                        BatchApplyThrustOverride(ThrustersDecelartion, decelOverride);
 
                     }
                     else if (currentShipSpeed < targetSpeed)
                     {
                         //accelerate 
-                        BatchApplyThrustOverride(ThrustersDecelartion, 0f);
-                        BatchApplyThrustOverride(ThrustersAcceleration, Math.Max(5f, Math.Min(100f, GetThrustForceOverrideBySpeedDifference(shipController, ThrustersAcceleration, speedDiff, accelerationTime))));
+                        BatchApplyThrustOverride(ThrustersDecelartion, 5f);
+                        float accelOverride = Math.Max(5f, Math.Min(100f, GetThrustForceOverrideBySpeedDifference(shipController, ThrustersAcceleration, speedDiff)));
+                        info_override = accelOverride;
+                        BatchApplyThrustOverride(ThrustersAcceleration, accelOverride);
                         
 
                     } else
                     {
                         BatchApplyThrustOverride(ThrustersAcceleration, 5f);
                         BatchApplyThrustOverride(ThrustersDecelartion, 5f);
+                        info_override = 5f;
                     }
+                }
+                else
+                {
+                    BatchApplyThrustOverride(ThrustersAcceleration, 5f);
+                    BatchApplyThrustOverride(ThrustersDecelartion, 5f);
+                    info_override = 5f;
                 }
             }
         }
+
+
 
         private void BatchApplyThrustOverride(List<IMyThrust> Thrusters, float value)
         {
@@ -248,16 +277,22 @@ namespace CruiseControl
         }
 
         
-        private float GetThrustForceOverrideBySpeedDifference(IMyShipController Controller, List<IMyThrust> Thrusters, float diff, float time)
+        private float GetThrustForceOverrideBySpeedDifference(IMyShipController Controller, List<IMyThrust> Thrusters, float diff)
         {
-            time = Math.Min(1, time);
-
-            float acceleration = diff / time;
 
             float ThrusterMaxN = GetMaximumThrustForce(Thrusters);
-            float ThrustRequiredForAcceleration = GetMinThrustRequired(Controller) * acceleration;
+            float ThrustRequiredForAcceleration = GetMinThrustRequired(Controller) * diff;
 
-            return (ThrustRequiredForAcceleration / ThrusterMaxN) * 100f;
+            info_newtons_available = ThrusterMaxN;
+            info_newtons_min = ThrustRequiredForAcceleration;
+
+            float result = 0;
+            if(ThrusterMaxN > 0)
+            {
+                result = (ThrustRequiredForAcceleration / ThrusterMaxN) * 100f;
+            }
+
+            return result;
         }
 
         private float GetMinThrustRequired(IMyShipController Controller)
