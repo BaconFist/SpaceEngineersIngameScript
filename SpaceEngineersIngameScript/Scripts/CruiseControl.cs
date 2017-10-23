@@ -53,14 +53,16 @@ namespace CruiseControl
 
         const float NEWTON_PER_KG = 9.8066500286389f;
 
-        float info_newtons_min = 0f;
+        float info_newtons_required = 0f;
         float info_newtons_available = 0f;
+        float info_newtons_applied = 0f;
         float info_override = 0f;
 
         public void Main(string argument)
         {
-            info_newtons_min = 0f;
+            info_newtons_required = 0f;
             info_newtons_available = 0f;
+            info_newtons_applied = 0f;
             info_override = 0f;
             run(argument);
         }
@@ -116,10 +118,13 @@ namespace CruiseControl
         {
             StringBuilder lcdText = new StringBuilder();
             lcdText.AppendLine(string.Format(@"Forward speed: (m/s) {0:0.00}", Math.Round(currentShipSpeed,2)));
+            lcdText.AppendLine("");
             lcdText.AppendLine(string.Format(@"Target speed: (m/s) {0:0.00}", Math.Round(targetSpeed, 2)));
             lcdText.AppendLine(string.Format(@"DeadZone: (m/s) {0:0.00}", Math.Round(deadZone, 2)));
-            lcdText.AppendLine(string.Format(@"Force Applied: {0}", FormatNewtons(info_newtons_min)));
+            lcdText.AppendLine("");
+            lcdText.AppendLine(string.Format(@"Force Required: {0}", FormatNewtons(info_newtons_required)));
             lcdText.AppendLine(string.Format(@"Force Available: {0}", FormatNewtons(info_newtons_available)));
+            lcdText.AppendLine(string.Format(@"Force Applied: {0}", FormatNewtons(info_newtons_applied)));            
             lcdText.AppendLine(string.Format(@"Override: (%) {0} ", Math.Round(info_override, 2)));
             return lcdText;
         }
@@ -284,7 +289,8 @@ namespace CruiseControl
             float ThrustRequiredForAcceleration = GetMinThrustRequired(Controller) * diff;
 
             info_newtons_available = ThrusterMaxN;
-            info_newtons_min = ThrustRequiredForAcceleration;
+            info_newtons_required = ThrustRequiredForAcceleration;
+            info_newtons_applied = Math.Min(ThrustRequiredForAcceleration, ThrusterMaxN);
 
             float result = 0;
             if(ThrusterMaxN > 0)
