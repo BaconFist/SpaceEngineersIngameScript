@@ -114,7 +114,7 @@ namespace CruiseControl
             lcdText.AppendLine(string.Format(@"Forward speed: {0} m/s", currentShipSpeed));
             lcdText.AppendLine(string.Format(@"Target speed: {0} m/s", targetSpeed));
             lcdText.AppendLine(string.Format(@"DeadZone: {0} m/s", deadZone));
-            lcdText.AppendLine(string.Format(@"Desired Accelleratoin Time: {0}s ", accelerationTime));
+            lcdText.AppendLine(string.Format(@"AccelerationTime: {0} s ", accelerationTime));
             return lcdText;
         }
 
