@@ -217,6 +217,7 @@ namespace BaconsFillLevelDisplay
                     {"statInstructions","Instructions: {0}/{1}"}, // {0} => current instructions, {1} => max instructions (50.000)
                     {"statRuntime","Runtime (ms): {0}"}, //{0} => script runtime (realtime) in milliseconds
                     {"statProgressed","Progressed: {0} Panels"}, // {0} => number of panels progressed in this run
+                    {"statAllowConnectedGrid","scan subgrids: {0}"}, // {0} => treu/false
                     {"statQueued","Queued: {0} Panels"}, // {0} => number of panels delayed to the next run
                     {"lcdStatSingleInventory","= Bacon's autoamted Fill Level Display =\nInventory Block: {0}\nLast Update: {1}\nLevel Inventory: ~{2}%"}, // {0} => Name of the Block with the inventory, {1} => datetime of last update, {2} => fill level of the inventory in percent
                     {"lcdStatDoubleInventory","= Bacon's autoamted Fill Level Display =\nInventory Block: {0}\nLast Update: {1}\nLevel Inventory #0: ~{2}%\nLevel Inventory #1: ~{3}%"}, // {0} => Name of the Block with the inventory, {1} => datetime of last update, {2} => fill level of 1st the inventory in percent, {3} => fill level of 2nd the inventory in percent
@@ -231,6 +232,7 @@ namespace BaconsFillLevelDisplay
                     {"statInstructions","Befehle: {0}/{1}"}, // {0} => current instructions, {1} => max instructions (50.000)
                     {"statRuntime","Laufzeit (ms): {0}"}, //{0} => script runtime (realtime) in milliseconds
                     {"statProgressed","Verabeitet: {0} Panels"}, // {0} => number of panels progressed in this run
+                    {"statAllowConnectedGrid","Erkenne Subgrids: {0}"}, // {0} => treu/false
                     {"statQueued","In der Warteschlange: {0} Panels"}, // {0} => number of panels delayed to the next run
                     {"lcdStatSingleInventory","= Bacon's automatische Füllstandsanzeige =\nInventar Block: {0}\nletzte Aktualisierung: {1}\nInventar Füllstand: ~{2}%"}, // {0} => Name of the Block with the inventory, {1} => datetime of last update, {2} => fill level of the inventory in percent
                     {"lcdStatDoubleInventory","= Bacon's automatische Füllstandsanzeige =\nInventar Block: {0}\nletzte Aktualisierung: {1}\nInventar #0 Füllstand: ~{2}%\nInventar #1 Füllstand: ~{3}%"}, // {0} => Name of the Block with the inventory, {1} => datetime of last update, {2} => fill level of 1st the inventory in percent, {3} => fill level of 2nd the inventory in percent
@@ -281,6 +283,8 @@ namespace BaconsFillLevelDisplay
             
             Echo(getText("statProgressed", panelProgressCount));
             Echo(getText("statQueued",PanelQueue.Count));
+
+            Echo(getText("statAllowConnectedGrid", allowConnectedGrid));
         }       
 
         public void enqueuePanels()
@@ -660,9 +664,9 @@ namespace BaconsFillLevelDisplay
                             }
                             break;
                         case CFG_STATE_SHOW:
-                            bool buffer:
-                            if(bool.TryParse(KeyValue[1].Trim(), out buffer)){
-                                showBlockState = buffer;
+                            bool bufferShow;
+                            if(bool.TryParse(KeyValue[1].Trim(), out bufferShow)){
+                                showBlockState = bufferShow;
                             }
                             break;
                         case CFG_LANGUAGE:
@@ -672,16 +676,16 @@ namespace BaconsFillLevelDisplay
                             }
                             break;
                         case CFG_OPT_SCANLIMIT:
-                            int buffer = 0;
-                            if(int.TryParse(KeyValue[1].Trim(), out buffer) && buffer > 0)
+                            int bufferScanLimit = 0;
+                            if(int.TryParse(KeyValue[1].Trim(), out bufferScanLimit) && bufferScanLimit > 0)
                             {
-                                optScanLimit = buffer;
+                                optScanLimit = bufferScanLimit;
                             }
                             break;
                         case CFG_ALLOW_CONNECTED_GRID:
-                            bool buffer:
-                            if(bool.TryParse(KeyValue[1].Trim(), out buffer)){
-                                allowConnectedGrid = buffer;
+                            bool bufferConnectedGrid;
+                            if(bool.TryParse(KeyValue[1].Trim(), out bufferConnectedGrid)){
+                                allowConnectedGrid = bufferConnectedGrid;
                             }
                             break;
                         default:
@@ -747,6 +751,7 @@ namespace BaconsFillLevelDisplay
             stateColorOn = defaultStateColorOn;
             language = defaultLanguage;
             optScanLimit = defaultOptScanLimit;
+            allowConnectedGrid = defaultAllowConnectedGrid;
         }
 
         public void writeDefaultConfigToCustomData()
