@@ -40,7 +40,11 @@ namespace CruiseControl
 
         Dictionary<IMyShipController, BMyCruiseControl> CruiseControls = new Dictionary<IMyShipController, BMyCruiseControl>();
 
-        string LCD_TAG = "[BCC]";
+        string TAG_LCD_VIEW= "[BCC]";
+        string TAG_VIEW_CONTROLLER = "[BCC]";
+
+        string TEMPLATE_DEFAULT_LCD = "";
+
 
         public Program()
         {
@@ -78,11 +82,34 @@ namespace CruiseControl
                 CruiseControl.Run();
                 Log?.IfDebug?.Debug("END: Run");
 
+                BMyView View = GetView(CruiseControl.state, Log);
+
                 if (updateSource.HasFlag(UpdateType.Update100))
                 {
                     Log?.IfDebug?.Debug("Update100 => refresh LCDs");
-                    WriteToLCD(CruiseControl.state, Log);
+                    WriteToLCD(View, Log);
+
+                    List<IMyProgrammableBlock> ViewControllers = new List<IMyProgrammableBlock>();
+                    GridTerminalSystem.GetBlocksOfType<IMyProgrammableBlock>(ViewControllers, (v => v.CubeGrid.Equals(Me.CubeGrid) && v.IsWorking && v.CustomName.Contains(TAG_VIEW_CONTROLLER)));
+                    if (ViewControllers.Count > 0)
+                    {
+                        string externalViewArgument = GetExternalViewArgument(View);
+                        foreach (IMyProgrammableBlock ViewPB in ViewControllers)
+                        {
+                            if (ViewPB.TryRun(externalViewArgument))
+                            {
+                                Log?.IfDebug?.Debug("successfully called external view \"{0}\"", ViewPB.CustomName);
+                            } else
+                            {
+                                Log?.IfError?.Error("failed calling external view \"{0}\"", ViewPB.CustomName);
+                            }                            
+                        }
+                    } else
+                    {
+                        Log?.IfDebug?.Debug("no external View Controller found.");
+                    }
                 }
+                WriteToEcho(View, Log);
 
                 
                 Log?.PopStack();
@@ -96,24 +123,18 @@ namespace CruiseControl
             }            
         }
    
-        private void WriteToEcho(BMyCruiseControl.State state, BMyLog4PB Log)
+        private void WriteToEcho(BMyView View, BMyLog4PB Log)
         {
             Log?.PushStack("WriteToEcho");
-            StringBuilder View = new StringBuilder();
-            View.AppendFormat("[Cruise Control - {0}]\n", DateTime.Now);
-            View.AppendFormat("Speed: {0:000.00} m/s\n", Math.Round(state.CurrentForwardVelocity, 2));
-            View.AppendFormat("Target: {0:000.00} m/s\n", Math.Round(state.SetVelocity, 2));
-            View.AppendFormat("Diff: {0:000.00} m/s\n", Math.Round(state.SetVelocity - state.CurrentForwardVelocity, 2));
-            View.AppendFormat("Mode: {0}\n", state.Operation);
-            Echo(View.ToString());
+            Echo(View.Render("[CruiseControl - {{NOW}}]\nSpeed: {{}}\nTarget: {{}}\nDiff: {{}}\nMode: {{}}"));
             Log?.PopStack();
         }
 
-        private void WriteToLCD(BMyCruiseControl.State state, BMyLog4PB Log)
+        private void WriteToLCD(BMyView View, BMyLog4PB Log)
         {
             Log?.PushStack("WriteToLCD");
             List<IMyTextPanel> LcdViews = new List<IMyTextPanel>();
-            GridTerminalSystem.GetBlocksOfType<IMyTextPanel>(LcdViews, b => b.IsWorking && b.CustomName.Contains(LCD_TAG) && b.CubeGrid.Equals(Me.CubeGrid));
+            GridTerminalSystem.GetBlocksOfType<IMyTextPanel>(LcdViews, b => b.IsWorking && b.CustomName.Contains(TAG_LCD_VIEW) && b.CubeGrid.Equals(Me.CubeGrid));
 
             Log?.IfDebug?.Debug("View LCDs: [{0}] {1}", LcdViews.Count, string.Join(",", LcdViews.ConvertAll<string>(x => x.CustomName)));
 
@@ -122,42 +143,17 @@ namespace CruiseControl
                 Log?.IfWarn?.Warn("No LCDs for output found.");
             } else
             {
-                StringBuilder View = new StringBuilder();
-                View.AppendFormat("[Cruise Control - {0}]\n", DateTime.Now);
-                View.AppendFormat("Speed: {0:000.00} m/s\n", Math.Round(state.CurrentForwardVelocity, 2));
-                View.AppendFormat("Target: {0:000.00} m/s\n", Math.Round(state.SetVelocity, 2));
-                View.AppendFormat("Diff: {0:000.00} m/s\n", Math.Round(state.SetVelocity - state.CurrentForwardVelocity, 2));
-                View.AppendFormat("Mode: {0}\n", state.Operation);
-                View.AppendLine();
-                View.AppendLine("Forward Non-Hydrogen");
-                View.AppendFormat("Available: {0:000000000.00}\n", Math.Round(state.ForceAvailableForwarAtmosphericAndIon, 2));
-                View.AppendFormat("Required: {0:000000000.00}\n", Math.Round(state.ForceRequiredForwardAtmosphericAndIon, 2));
-                View.AppendFormat("Applied: {0:000000000.00}\n", Math.Round(state.ForceAppliedForwardAtmosphericAndIon, 2));
-                View.AppendFormat("Override: {0:000.00} %\n", Math.Round(state.OverrideAppliedForwardAtmosphericAndIon, 2));
-                View.AppendLine();
-                View.AppendLine("Forward Hydrogen");
-                View.AppendFormat("Available: {0:000000000.00} N\n", Math.Round(state.ForceAvailableForwardHydrogen, 2));
-                View.AppendFormat("Required: {0:000000000.00} N\n", Math.Round(state.ForceRequiredForwardHydrogen, 2));
-                View.AppendFormat("Applied: {0:000000000.00} N\n", Math.Round(state.ForceAppliedForwardHydrogen, 2));
-                View.AppendFormat("Override: {0:000.00} %\n", Math.Round(state.OverrideAppliedForwardHydrogen, 2));
-                View.AppendLine();
-                View.AppendLine("Backward Non-Hydrogen");
-                View.AppendFormat("Available: {0:000000000.00} N\n", Math.Round(state.ForceAvailableBackwardAtmosphericAndIon, 2));
-                View.AppendFormat("Required: {0:000000000.00} N\n", Math.Round(state.ForceRequiredBackwardAtmosphericAndIon, 2));
-                View.AppendFormat("Applied: {0:000000000.00} N\n", Math.Round(state.ForceAppliedBackwardAtmosphericAndIon, 2));
-                View.AppendFormat("Override: {0:000.00} %\n", Math.Round(state.OverrideAppliedBackwardAtmosphericAndIon, 2));
-                View.AppendLine();
-                View.AppendLine("Backward Hydrogen");
-                View.AppendFormat("Available: {0:000000000.00} N\n", Math.Round(state.ForceAvailableBackwardHydrogen, 2));
-                View.AppendFormat("Required: {0:000000000.00} N\n", Math.Round(state.ForceRequiredBackwardHydrogen, 2));
-                View.AppendFormat("Applied: {0:000000000.00} N\n", Math.Round(state.ForceAppliedBackwardHydrogen, 2));
-                View.AppendFormat("Override: {0:000.00} %\n", Math.Round(state.OverrideAppliedBackwardHydrogen, 2));
-
-                string longInfo = View.ToString();
                 foreach (IMyTextPanel LCD in LcdViews)
                 {
-                    LCD.ShowPublicTextOnScreen();
-                    LCD.WritePublicText(longInfo);
+                    try
+                    {
+                        LCD.ShowPublicTextOnScreen();
+                        LCD.WritePublicText(View.Render((LCD.CustomData.Trim().Length > 0) ? LCD.CustomData : TEMPLATE_DEFAULT_LCD));
+                    }
+                    catch (Exception e)
+                    {
+                        Log?.IfError?.Error("Failed rendering Template for \"{0}\" => {1}", LCD.CustomName, e);   
+                    }
                 }
             }
             Log?.PopStack();
@@ -708,6 +704,85 @@ namespace CruiseControl
             }
 
         }
+
+        private string GetExternalViewArgument(BMyView View)
+        {
+            StringBuilder slug = new StringBuilder();
+            foreach(KeyValuePair<string,object> marker in View.Context)
+            {
+                slug.AppendFormat("{0}:{1}\n", marker.Key, marker.Value);
+            }
+            return slug.ToString();
+        }
+
+        private BMyView GetView(BMyCruiseControl.State state, BMyLog4PB Log)
+        {
+            Log?.PushStack("GetView");
+            BMyView View = new BMyView();
+
+            View.SetValue("{{NOW}}", DateTime.Now);
+            View.SetValue("{{CURRENT_FORWARD_VELOCITY}}", Math.Round(state.CurrentForwardVelocity, 2), "{ 0:000.00}");
+            View.SetValue("{{TARGET_FORWARD_VELOCITY}}", Math.Round(state.SetVelocity, 2), "{ 0:000.00}");
+            View.SetValue("{{FORWARD_VELOCITY_DIFF}}", Math.Round(state.SetVelocity - state.CurrentForwardVelocity, 2), "{0:000.00}");
+            View.SetValue("{{MODE_OF_OPERATION}}", state.Operation);
+            View.SetValue("{{FORCE_AVAILABLE_ATMOSPHERIC_AND_ION}}", Math.Round(state.ForceAvailableForwarAtmosphericAndIon, 2), "{0:000000000.00}");
+            View.SetValue("{{FORCE_REQUIREC_ATMOSPHERIC_AND_ION}}", Math.Round(state.ForceRequiredForwardAtmosphericAndIon, 2), "{0:000000000.00}");
+            View.SetValue("{{FORCE_APPLIED_ATMOSPHERIC_AND_ION}}", Math.Round(state.ForceAppliedForwardAtmosphericAndIon, 2), "{0:000000000.00}");
+            View.SetValue("{{OVERRIDE_APPLIED_ATMOSPHERIC_AND_ION}}", Math.Round(state.OverrideAppliedForwardAtmosphericAndIon, 2), "{0:000.00}");
+            View.SetValue("{{FORCE_AVAILABLE_FORWARD_HYDROGEN}}", Math.Round(state.ForceAvailableForwardHydrogen, 2), "{0:000000000.00}");
+            View.SetValue("{{FORCE_REQUIRED_FORWARD_HYDROGEN}}", Math.Round(state.ForceRequiredForwardHydrogen, 2), "{0:000000000.00}");
+            View.SetValue("{{FORCE_APPLIED_FORWARD_HYDROGEN}}", Math.Round(state.ForceAppliedForwardHydrogen, 2), "{0:000000000.00}");
+            View.SetValue("{{OVERRIDE_APPLIED_FORWARD_HYDROGEN}}", Math.Round(state.OverrideAppliedForwardHydrogen, 2), "{0:000.00}");
+            View.SetValue("{{FORCE_AVAILABLE_BACKWARD_ATMOSPEHRIC_AND_ION}}", Math.Round(state.ForceAvailableBackwardAtmosphericAndIon, 2), "{0:000000000.00}");
+            View.SetValue("{{FORCE_REQUIRED_BACKWARD_ATMOSPEHRIC_AND_ION}}", Math.Round(state.ForceRequiredBackwardAtmosphericAndIon, 2), "{0:000000000.00}");
+            View.SetValue("{{FORCE_APPLIED_BACKWARD_ATMOSPEHRIC_AND_ION}}", Math.Round(state.ForceAppliedBackwardAtmosphericAndIon, 2), "{0:000000000.00}");
+            View.SetValue("{{OVERRIDE_APPLIED_BACKWARD_ATMOSPEHRIC_AND_ION}}", Math.Round(state.OverrideAppliedBackwardAtmosphericAndIon, 2), "{0:000.00}");
+            View.SetValue("{{FORCE_AVAILABLE_BACKWARD_HYDROGEN}}", Math.Round(state.ForceAvailableBackwardHydrogen, 2), "{0:000000000.00}");
+            View.SetValue("{{FORCE_REQUIRED_BACKWARD_HYDROGEN}}", Math.Round(state.ForceRequiredBackwardHydrogen, 2), "{0:000000000.00}");
+            View.SetValue("{{FORCE_APPLIED_BACKWARD_HYDROGEN}}", Math.Round(state.ForceAppliedBackwardHydrogen, 2), "{0:000000000.00}");
+            View.SetValue("{{OVERRIDE_APPLIED_BACKWARD_HYDROGEN}}", Math.Round(state.OverrideAppliedBackwardHydrogen, 2), "{0:000.00}");
+
+            Log?.PopStack();
+            return View;
+        }
+
+        class BMyView
+        {
+            public Dictionary<string, object> Context = new Dictionary<string, object>();
+            public Dictionary<string, string> Format = new Dictionary<string, string>();
+
+
+
+            public void SetValue(string key, object value, string format = "{0}")
+            {
+                if (Context.ContainsKey(key))
+                {
+                    Context[key] = value;
+                } else
+                {
+                    Context.Add(key, value);
+                }
+
+                if (Format.ContainsKey(key))
+                {
+                    Format[key] = format;
+                } else
+                {
+                    Format.Add(key, format);
+                }
+            }
+
+            public string Render(string Template)
+            {
+                string content = Template;
+                foreach(KeyValuePair<string,object> marker in Context)
+                {
+                    content = content.Replace(marker.Key, string.Format(Format[marker.Key], marker.Value));
+                }
+                return content;
+            }
+        }
+
 
         #region includes 
         public class BaconArgs { public string Raw; static public BaconArgs parse(string a) { return (new Parser()).parseArgs(a); } static public string Escape(object a) { return string.Format("{0}", a).Replace(@"\", @"\\").Replace(@" ", @"\ ").Replace(@"""", @"\"""); } static public string UnEscape(string a) { return a.Replace(@"\""", @"""").Replace(@"\ ", @" ").Replace(@"\\", @"\"); } public class Parser { static Dictionary<string, BaconArgs> h = new Dictionary<string, BaconArgs>(); public BaconArgs parseArgs(string a) { if (!h.ContainsKey(a)) { var b = new BaconArgs(); b.Raw = a; var c = false; var d = false; var e = new StringBuilder(); for (int f = 0; f < a.Length; f++) { var g = a[f]; if (c) { e.Append(g); c = false; } else if (g.Equals('\\')) c = true; else if (d && !g.Equals('"')) e.Append(g); else if (g.Equals('"')) d = !d; else if (g.Equals(' ')) if (e.ToString().Equals("--")) { b.add(a.Substring(f).TrimStart()); e.Clear(); break; } else { b.add(e.ToString()); e.Clear(); } else e.Append(g); } if (e.Length > 0) b.add(e.ToString()); h.Add(a, b); } return h[a]; } } protected Dictionary<char, int> h = new Dictionary<char, int>(); protected List<string> i = new List<string>(); protected Dictionary<string, List<string>> j = new Dictionary<string, List<string>>(); public List<string> getArguments() { return i; } public int getFlag(char a) { return h.ContainsKey(a) ? h[a] : 0; } public bool hasArguments() { return i.Count > 0; } public bool hasOption(string a) { return j.ContainsKey(a); } public List<string> getOption(string a) { return j.ContainsKey(a) ? j[a] : new List<string>(); } public void add(string a) { if (a.Trim().Length > 0) if (!a.StartsWith("-")) { i.Add(a); } else if (a.StartsWith("--")) { KeyValuePair<string, string> b = k(a); string c = b.Key.Substring(2); if (!j.ContainsKey(c)) { j.Add(c, new List<string>()); } j[c].Add(b.Value); } else { string b = a.Substring(1); for (int d = 0; d < b.Length; d++) { if (this.h.ContainsKey(b[d])) { this.h[b[d]]++; } else { this.h.Add(b[d], 1); } } } } KeyValuePair<string, string> k(string a) { string[] b = a.Split(new char[] { '=' }, 2); return new KeyValuePair<string, string>(b[0], (b.Length > 1) ? b[1] : null); } public string ToArguments() { var a = new List<string>(); foreach (string argument in this.getArguments()) a.Add(Escape(argument)); foreach (KeyValuePair<string, List<string>> option in this.j) { var b = "--" + Escape(option.Key); foreach (string optVal in option.Value) a.Add(b + ((optVal != null) ? "=" + Escape(optVal) : "")); } var c = (h.Count > 0) ? "-" : ""; foreach (KeyValuePair<char, int> flag in h) c += new String(flag.Key, flag.Value); a.Add(c); return String.Join(" ", a.ToArray()); } override public string ToString() { var a = new List<string>(); foreach (string key in j.Keys) a.Add(l(key) + ":[" + string.Join(",", j[key].ConvertAll<string>(b => l(b)).ToArray()) + "]"); var c = new List<string>(); foreach (char key in h.Keys) c.Add(key + ":" + h[key].ToString()); var d = new StringBuilder(); d.Append("{\"a\":["); d.Append(string.Join(",", i.ConvertAll<string>(b => l(b)).ToArray())); d.Append("],\"o\":[{"); d.Append(string.Join("},{", a)); d.Append("}],\"f\":[{"); d.Append(string.Join("},{", c)); d.Append("}]}"); return d.ToString(); } string l(string a) { return (a != null) ? "\"" + a.Replace(@"\", @"\\").Replace(@"""", @"\""") + "\"" : @"null"; } }
