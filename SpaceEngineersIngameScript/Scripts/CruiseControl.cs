@@ -82,7 +82,7 @@ namespace CruiseControl
                 CruiseControl.Run();
                 Log?.IfDebug?.Debug("END: Run");
 
-                BMyView View = GetView(CruiseControl.state, Log);
+                BMyCruiseControlView View = new BMyCruiseControlView(CruiseControl, Log);
 
                 if (updateSource.HasFlag(UpdateType.Update100))
                 {
@@ -123,42 +123,13 @@ namespace CruiseControl
             }            
         }
    
-        private void WriteToEcho(BMyView View, BMyLog4PB Log)
-        {
-            Log?.PushStack("WriteToEcho");
-            Echo(View.Render("[CruiseControl - {{NOW}}]\nSpeed: {{}}\nTarget: {{}}\nDiff: {{}}\nMode: {{}}"));
-            Log?.PopStack();
-        }
-
-        private void WriteToLCD(BMyView View, BMyLog4PB Log)
-        {
-            Log?.PushStack("WriteToLCD");
-            List<IMyTextPanel> LcdViews = new List<IMyTextPanel>();
-            GridTerminalSystem.GetBlocksOfType<IMyTextPanel>(LcdViews, b => b.IsWorking && b.CustomName.Contains(TAG_LCD_VIEW) && b.CubeGrid.Equals(Me.CubeGrid));
-
-            Log?.IfDebug?.Debug("View LCDs: [{0}] {1}", LcdViews.Count, string.Join(",", LcdViews.ConvertAll<string>(x => x.CustomName)));
-
-            if(LcdViews.Count == 0)
-            {
-                Log?.IfWarn?.Warn("No LCDs for output found.");
-            } else
-            {
-                foreach (IMyTextPanel LCD in LcdViews)
-                {
-                    try
-                    {
-                        LCD.ShowPublicTextOnScreen();
-                        LCD.WritePublicText(View.Render((LCD.CustomData.Trim().Length > 0) ? LCD.CustomData : TEMPLATE_DEFAULT_LCD));
-                    }
-                    catch (Exception e)
-                    {
-                        Log?.IfError?.Error("Failed rendering Template for \"{0}\" => {1}", LCD.CustomName, e);   
-                    }
-                }
-            }
-            Log?.PopStack();
-        }
-
+       
+        /// <summary>
+        /// returns a shipcontroller (cokpit or remote) accordinf to given filter.
+        /// </summary>
+        /// <param name="filter">must be contained in controller's customname</param>
+        /// <param name="Log">an instance of BMyLog4PB or null</param>
+        /// <returns>the cockpit/remote under controll</returns>
         private IMyShipController GetController(string filter, BMyLog4PB Log)
         {
             Log?.PushStack("GetController");
@@ -183,6 +154,12 @@ namespace CruiseControl
             return Match;
         }
 
+        /// <summary>
+        /// returns the cruisecontrol mapped to "Controller"
+        /// </summary>
+        /// <param name="Controller">cockpit / remote to be used as reference</param>
+        /// <param name="Log"></param>
+        /// <returns></returns>
         private BMyCruiseControl GetCruiseControl(IMyShipController Controller, BMyLog4PB Log)
         {
             Log?.PushStack("GetCruiseControl");
@@ -195,6 +172,9 @@ namespace CruiseControl
             return CruiseControls[Controller];
         }
 
+        /// <summary>
+        /// holds all the options/settings/arguments for a cruise controll
+        /// </summary>
         private class CruiseControlOptionBag {
             const string ID_DEADZONE = "DeadZone";
             const string ID_ERROR_MARGIN = "ErrorMargin";
@@ -243,6 +223,7 @@ namespace CruiseControl
             }
         }
         
+
         public class BMyCruiseControl {
             private BMyLog4PB Log { get; }
 
@@ -253,6 +234,9 @@ namespace CruiseControl
             const byte THRUSTER_TYPE_HYDROGEN = 2;
             const byte THRUSTER_TYPE_ATMOSPHERIC = 4;
 
+            /// <summary>
+            /// defines wich type of thruster has wich propulsion system
+            /// </summary>
             static Dictionary<byte, List<string>> ThrusterTypeMap = new Dictionary<byte, List<string>>(){
                 {THRUSTER_TYPE_HYDROGEN, new List<string>{
                     "LargeBlockLargeHydrogenThrust",
@@ -274,6 +258,9 @@ namespace CruiseControl
                 } },
             };
 
+            /// <summary>
+            /// hild data later required by a View
+            /// </summary>
             public State state { get; }
 
             private IMyShipController Controller { get; }
@@ -286,8 +273,11 @@ namespace CruiseControl
 
             private List<IMyThrust> ThrustersForwardHydrogen= new List<IMyThrust>();
             private List<IMyThrust> ThrustersBackwardHydrogen = new List<IMyThrust>();
-
+            
             public float TargetVelocity { get; set; }            
+            /// <summary>
+            /// allowed difference between current and target speed
+            /// </summary>
             public float ErrorMargin { get; set; }
 
             private float ForceAvailableForwardIonAndAtmospheric = 0f;
@@ -705,7 +695,14 @@ namespace CruiseControl
 
         }
 
-        private string GetExternalViewArgument(BMyView View)
+        #region View
+
+        /// <summary>
+        /// build all view informations as an argument that can be passed to an other Script to create output
+        /// </summary>
+        /// <param name="View"></param>
+        /// <returns></returns>
+        private string GetExternalViewArgument(BMyCruiseControlView View)
         {
             StringBuilder slug = new StringBuilder();
             foreach(KeyValuePair<string,object> marker in View.Context)
@@ -714,45 +711,50 @@ namespace CruiseControl
             }
             return slug.ToString();
         }
-
-        private BMyView GetView(BMyCruiseControl.State state, BMyLog4PB Log)
-        {
-            Log?.PushStack("GetView");
-            BMyView View = new BMyView();
-
-            View.SetValue("{{NOW}}", DateTime.Now);
-            View.SetValue("{{CURRENT_FORWARD_VELOCITY}}", Math.Round(state.CurrentForwardVelocity, 2), "{ 0:000.00}");
-            View.SetValue("{{TARGET_FORWARD_VELOCITY}}", Math.Round(state.SetVelocity, 2), "{ 0:000.00}");
-            View.SetValue("{{FORWARD_VELOCITY_DIFF}}", Math.Round(state.SetVelocity - state.CurrentForwardVelocity, 2), "{0:000.00}");
-            View.SetValue("{{MODE_OF_OPERATION}}", state.Operation);
-            View.SetValue("{{FORCE_AVAILABLE_ATMOSPHERIC_AND_ION}}", Math.Round(state.ForceAvailableForwarAtmosphericAndIon, 2), "{0:000000000.00}");
-            View.SetValue("{{FORCE_REQUIREC_ATMOSPHERIC_AND_ION}}", Math.Round(state.ForceRequiredForwardAtmosphericAndIon, 2), "{0:000000000.00}");
-            View.SetValue("{{FORCE_APPLIED_ATMOSPHERIC_AND_ION}}", Math.Round(state.ForceAppliedForwardAtmosphericAndIon, 2), "{0:000000000.00}");
-            View.SetValue("{{OVERRIDE_APPLIED_ATMOSPHERIC_AND_ION}}", Math.Round(state.OverrideAppliedForwardAtmosphericAndIon, 2), "{0:000.00}");
-            View.SetValue("{{FORCE_AVAILABLE_FORWARD_HYDROGEN}}", Math.Round(state.ForceAvailableForwardHydrogen, 2), "{0:000000000.00}");
-            View.SetValue("{{FORCE_REQUIRED_FORWARD_HYDROGEN}}", Math.Round(state.ForceRequiredForwardHydrogen, 2), "{0:000000000.00}");
-            View.SetValue("{{FORCE_APPLIED_FORWARD_HYDROGEN}}", Math.Round(state.ForceAppliedForwardHydrogen, 2), "{0:000000000.00}");
-            View.SetValue("{{OVERRIDE_APPLIED_FORWARD_HYDROGEN}}", Math.Round(state.OverrideAppliedForwardHydrogen, 2), "{0:000.00}");
-            View.SetValue("{{FORCE_AVAILABLE_BACKWARD_ATMOSPEHRIC_AND_ION}}", Math.Round(state.ForceAvailableBackwardAtmosphericAndIon, 2), "{0:000000000.00}");
-            View.SetValue("{{FORCE_REQUIRED_BACKWARD_ATMOSPEHRIC_AND_ION}}", Math.Round(state.ForceRequiredBackwardAtmosphericAndIon, 2), "{0:000000000.00}");
-            View.SetValue("{{FORCE_APPLIED_BACKWARD_ATMOSPEHRIC_AND_ION}}", Math.Round(state.ForceAppliedBackwardAtmosphericAndIon, 2), "{0:000000000.00}");
-            View.SetValue("{{OVERRIDE_APPLIED_BACKWARD_ATMOSPEHRIC_AND_ION}}", Math.Round(state.OverrideAppliedBackwardAtmosphericAndIon, 2), "{0:000.00}");
-            View.SetValue("{{FORCE_AVAILABLE_BACKWARD_HYDROGEN}}", Math.Round(state.ForceAvailableBackwardHydrogen, 2), "{0:000000000.00}");
-            View.SetValue("{{FORCE_REQUIRED_BACKWARD_HYDROGEN}}", Math.Round(state.ForceRequiredBackwardHydrogen, 2), "{0:000000000.00}");
-            View.SetValue("{{FORCE_APPLIED_BACKWARD_HYDROGEN}}", Math.Round(state.ForceAppliedBackwardHydrogen, 2), "{0:000000000.00}");
-            View.SetValue("{{OVERRIDE_APPLIED_BACKWARD_HYDROGEN}}", Math.Round(state.OverrideAppliedBackwardHydrogen, 2), "{0:000.00}");
-
-            Log?.PopStack();
-            return View;
-        }
-
-        class BMyView
+        
+        class BMyCruiseControlView
         {
             public Dictionary<string, object> Context = new Dictionary<string, object>();
             public Dictionary<string, string> Format = new Dictionary<string, string>();
 
+            BMyLog4PB Log;
 
+            public BMyCruiseControlView(BMyCruiseControl CruiseControl, BMyLog4PB Log)
+            {
+                Log?.PushStack("BMyView.BMyView");
+                this.Log = Log;
+                
+                SetValue("{{NOW}}", DateTime.Now);
+                SetValue("{{CURRENT_FORWARD_VELOCITY}}", Math.Round(CruiseControl.state.CurrentForwardVelocity, 2), "{ 0:000.00}");
+                SetValue("{{TARGET_FORWARD_VELOCITY}}", Math.Round(CruiseControl.state.SetVelocity, 2), "{ 0:000.00}");
+                SetValue("{{FORWARD_VELOCITY_DIFF}}", Math.Round(CruiseControl.state.SetVelocity - CruiseControl.state.CurrentForwardVelocity, 2), "{0:000.00}");
+                SetValue("{{MODE_OF_OPERATION}}", CruiseControl.state.Operation);
+                SetValue("{{FORCE_AVAILABLE_ATMOSPHERIC_AND_ION}}", Math.Round(CruiseControl.state.ForceAvailableForwarAtmosphericAndIon, 2), "{0:000000000.00}");
+                SetValue("{{FORCE_REQUIREC_ATMOSPHERIC_AND_ION}}", Math.Round(CruiseControl.state.ForceRequiredForwardAtmosphericAndIon, 2), "{0:000000000.00}");
+                SetValue("{{FORCE_APPLIED_ATMOSPHERIC_AND_ION}}", Math.Round(CruiseControl.state.ForceAppliedForwardAtmosphericAndIon, 2), "{0:000000000.00}");
+                SetValue("{{OVERRIDE_APPLIED_ATMOSPHERIC_AND_ION}}", Math.Round(CruiseControl.state.OverrideAppliedForwardAtmosphericAndIon, 2), "{0:000.00}");
+                SetValue("{{FORCE_AVAILABLE_FORWARD_HYDROGEN}}", Math.Round(CruiseControl.state.ForceAvailableForwardHydrogen, 2), "{0:000000000.00}");
+                SetValue("{{FORCE_REQUIRED_FORWARD_HYDROGEN}}", Math.Round(CruiseControl.state.ForceRequiredForwardHydrogen, 2), "{0:000000000.00}");
+                SetValue("{{FORCE_APPLIED_FORWARD_HYDROGEN}}", Math.Round(CruiseControl.state.ForceAppliedForwardHydrogen, 2), "{0:000000000.00}");
+                SetValue("{{OVERRIDE_APPLIED_FORWARD_HYDROGEN}}", Math.Round(CruiseControl.state.OverrideAppliedForwardHydrogen, 2), "{0:000.00}");
+                SetValue("{{FORCE_AVAILABLE_BACKWARD_ATMOSPEHRIC_AND_ION}}", Math.Round(CruiseControl.state.ForceAvailableBackwardAtmosphericAndIon, 2), "{0:000000000.00}");
+                SetValue("{{FORCE_REQUIRED_BACKWARD_ATMOSPEHRIC_AND_ION}}", Math.Round(CruiseControl.state.ForceRequiredBackwardAtmosphericAndIon, 2), "{0:000000000.00}");
+                SetValue("{{FORCE_APPLIED_BACKWARD_ATMOSPEHRIC_AND_ION}}", Math.Round(CruiseControl.state.ForceAppliedBackwardAtmosphericAndIon, 2), "{0:000000000.00}");
+                SetValue("{{OVERRIDE_APPLIED_BACKWARD_ATMOSPEHRIC_AND_ION}}", Math.Round(CruiseControl.state.OverrideAppliedBackwardAtmosphericAndIon, 2), "{0:000.00}");
+                SetValue("{{FORCE_AVAILABLE_BACKWARD_HYDROGEN}}", Math.Round(CruiseControl.state.ForceAvailableBackwardHydrogen, 2), "{0:000000000.00}");
+                SetValue("{{FORCE_REQUIRED_BACKWARD_HYDROGEN}}", Math.Round(CruiseControl.state.ForceRequiredBackwardHydrogen, 2), "{0:000000000.00}");
+                SetValue("{{FORCE_APPLIED_BACKWARD_HYDROGEN}}", Math.Round(CruiseControl.state.ForceAppliedBackwardHydrogen, 2), "{0:000000000.00}");
+                SetValue("{{OVERRIDE_APPLIED_BACKWARD_HYDROGEN}}", Math.Round(CruiseControl.state.OverrideAppliedBackwardHydrogen, 2), "{0:000.00}");
 
+                Log?.PopStack();
+            }
+
+            /// <summary>
+            /// add/update a marker with a new value and format
+            /// </summary>
+            /// <param name="key">will be replaced with value</param>
+            /// <param name="value">will replace value</param>
+            /// <param name="format">used by string.Format(format,value) on replacement</param>
             public void SetValue(string key, object value, string format = "{0}")
             {
                 if (Context.ContainsKey(key))
@@ -772,6 +774,11 @@ namespace CruiseControl
                 }
             }
 
+            /// <summary>
+            /// the actual template to work with. 
+            /// </summary>
+            /// <param name="Template">prepared content containig markers</param>
+            /// <returns></returns>
             public string Render(string Template)
             {
                 string content = Template;
@@ -783,6 +790,44 @@ namespace CruiseControl
             }
         }
 
+        private void WriteToEcho(BMyCruiseControlView View, BMyLog4PB Log)
+        {
+            Log?.PushStack("WriteToEcho");
+            Echo(View.Render("[CruiseControl - {{NOW}}]\nSpeed: {{}}\nTarget: {{}}\nDiff: {{}}\nMode: {{}}"));
+            Log?.PopStack();
+        }
+
+        private void WriteToLCD(BMyCruiseControlView View, BMyLog4PB Log)
+        {
+            Log?.PushStack("WriteToLCD");
+            List<IMyTextPanel> LcdViews = new List<IMyTextPanel>();
+            GridTerminalSystem.GetBlocksOfType<IMyTextPanel>(LcdViews, b => b.IsWorking && b.CustomName.Contains(TAG_LCD_VIEW) && b.CubeGrid.Equals(Me.CubeGrid));
+
+            Log?.IfDebug?.Debug("View LCDs: [{0}] {1}", LcdViews.Count, string.Join(",", LcdViews.ConvertAll<string>(x => x.CustomName)));
+
+            if (LcdViews.Count == 0)
+            {
+                Log?.IfWarn?.Warn("No LCDs for output found.");
+            }
+            else
+            {
+                foreach (IMyTextPanel LCD in LcdViews)
+                {
+                    try
+                    {
+                        LCD.ShowPublicTextOnScreen();
+                        LCD.WritePublicText(View.Render((LCD.CustomData.Trim().Length > 0) ? LCD.CustomData : TEMPLATE_DEFAULT_LCD));
+                    }
+                    catch (Exception e)
+                    {
+                        Log?.IfError?.Error("Failed rendering Template for \"{0}\" => {1}", LCD.CustomName, e);
+                    }
+                }
+            }
+            Log?.PopStack();
+        }
+
+        #endregion View
 
         #region includes 
         public class BaconArgs { public string Raw; static public BaconArgs parse(string a) { return (new Parser()).parseArgs(a); } static public string Escape(object a) { return string.Format("{0}", a).Replace(@"\", @"\\").Replace(@" ", @"\ ").Replace(@"""", @"\"""); } static public string UnEscape(string a) { return a.Replace(@"\""", @"""").Replace(@"\ ", @" ").Replace(@"\\", @"\"); } public class Parser { static Dictionary<string, BaconArgs> h = new Dictionary<string, BaconArgs>(); public BaconArgs parseArgs(string a) { if (!h.ContainsKey(a)) { var b = new BaconArgs(); b.Raw = a; var c = false; var d = false; var e = new StringBuilder(); for (int f = 0; f < a.Length; f++) { var g = a[f]; if (c) { e.Append(g); c = false; } else if (g.Equals('\\')) c = true; else if (d && !g.Equals('"')) e.Append(g); else if (g.Equals('"')) d = !d; else if (g.Equals(' ')) if (e.ToString().Equals("--")) { b.add(a.Substring(f).TrimStart()); e.Clear(); break; } else { b.add(e.ToString()); e.Clear(); } else e.Append(g); } if (e.Length > 0) b.add(e.ToString()); h.Add(a, b); } return h[a]; } } protected Dictionary<char, int> h = new Dictionary<char, int>(); protected List<string> i = new List<string>(); protected Dictionary<string, List<string>> j = new Dictionary<string, List<string>>(); public List<string> getArguments() { return i; } public int getFlag(char a) { return h.ContainsKey(a) ? h[a] : 0; } public bool hasArguments() { return i.Count > 0; } public bool hasOption(string a) { return j.ContainsKey(a); } public List<string> getOption(string a) { return j.ContainsKey(a) ? j[a] : new List<string>(); } public void add(string a) { if (a.Trim().Length > 0) if (!a.StartsWith("-")) { i.Add(a); } else if (a.StartsWith("--")) { KeyValuePair<string, string> b = k(a); string c = b.Key.Substring(2); if (!j.ContainsKey(c)) { j.Add(c, new List<string>()); } j[c].Add(b.Value); } else { string b = a.Substring(1); for (int d = 0; d < b.Length; d++) { if (this.h.ContainsKey(b[d])) { this.h[b[d]]++; } else { this.h.Add(b[d], 1); } } } } KeyValuePair<string, string> k(string a) { string[] b = a.Split(new char[] { '=' }, 2); return new KeyValuePair<string, string>(b[0], (b.Length > 1) ? b[1] : null); } public string ToArguments() { var a = new List<string>(); foreach (string argument in this.getArguments()) a.Add(Escape(argument)); foreach (KeyValuePair<string, List<string>> option in this.j) { var b = "--" + Escape(option.Key); foreach (string optVal in option.Value) a.Add(b + ((optVal != null) ? "=" + Escape(optVal) : "")); } var c = (h.Count > 0) ? "-" : ""; foreach (KeyValuePair<char, int> flag in h) c += new String(flag.Key, flag.Value); a.Add(c); return String.Join(" ", a.ToArray()); } override public string ToString() { var a = new List<string>(); foreach (string key in j.Keys) a.Add(l(key) + ":[" + string.Join(",", j[key].ConvertAll<string>(b => l(b)).ToArray()) + "]"); var c = new List<string>(); foreach (char key in h.Keys) c.Add(key + ":" + h[key].ToString()); var d = new StringBuilder(); d.Append("{\"a\":["); d.Append(string.Join(",", i.ConvertAll<string>(b => l(b)).ToArray())); d.Append("],\"o\":[{"); d.Append(string.Join("},{", a)); d.Append("}],\"f\":[{"); d.Append(string.Join("},{", c)); d.Append("}]}"); return d.ToString(); } string l(string a) { return (a != null) ? "\"" + a.Replace(@"\", @"\\").Replace(@"""", @"\""") + "\"" : @"null"; } }
