@@ -43,6 +43,7 @@
     <Compile Include="Scripts\Block Prenamer.cs" />
     <Compile Include="Scripts\DedicatedTimerFix.cs" />
     <Compile Include="Scripts\DoorInterlock.cs" />
+    <Compile Include="Scripts\EventHandler.cs" />
     <Compile Include="Scripts\FuelConsumption.cs" />
     <Compile Include="Scripts\GFXLib.cs" />
     <Compile Include="Scripts\GPSDistance.cs" />
@@ -67,6 +68,8 @@
     <Compile Include="Scripts\Snippet_CustomDataManager.cs" />
     <Compile Include="Scripts\Snippet_DetailedInfo.cs" />
     <Compile Include="Scripts\SolarLightSwitch.cs" />
+    <Compile Include="Scripts\SpaceEngineersIngameScript1.cs" />
+    <Compile Include="Scripts\SpaceEngineersIngameScript2.cs" />
     <Compile Include="Scripts\TestZeug.cs" />
     <Compile Include="Template\IngameScript.cs" />
   </ItemGroup>

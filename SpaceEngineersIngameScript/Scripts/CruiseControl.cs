@@ -48,7 +48,7 @@ namespace CruiseControl
 
         public Program()
         {
-            Runtime.UpdateFrequency = UpdateFrequency.Update1 | UpdateFrequency.Update100;
+            Runtime.UpdateFrequency = UpdateFrequency.Update10 | UpdateFrequency.Update100;
         }
 
         public void Main(string argument, UpdateType updateSource)        {
