@@ -352,14 +352,14 @@ namespace CruiseControl
                 float velocityDelta = Math.Abs(TargetVelocity - ErrorMargin - CurrentVelocity);
                 float forceRequiredIonAndAtmospheric = GetRequiredThrustForce() * velocityDelta;
                 float forceRequiredHydrogen = forceRequiredIonAndAtmospheric - ForceAvailableForwardIonAndAtmospheric;
-                float overrideIonAndAtmosphericThrusters = Range(0f, (forceRequiredIonAndAtmospheric / Math.Min(1, ForceAvailableForwardIonAndAtmospheric)) * 100f);
+                float overrideIonAndAtmosphericThrusters = Range((forceRequiredIonAndAtmospheric / Math.Min(1, ForceAvailableForwardIonAndAtmospheric)) * 100f, 0f, 100f);
                 float overrideHydrogenThrusters = 0f;
 
                 BatchThrustOverride(ThrustersForwardAtmosphericAndIon, overrideIonAndAtmosphericThrusters);
 
                 if (forceRequiredHydrogen > 0)
                 {
-                    overrideHydrogenThrusters = Range(0f, (forceRequiredHydrogen / ForceAvailableBackwardHydrogen) * 100f);
+                    overrideHydrogenThrusters = Range((forceRequiredHydrogen / ForceAvailableBackwardHydrogen) * 100f, 0f, 100f);
                 }
                 BatchThrustOverride(ThrustersForwardHydrogen, overrideHydrogenThrusters);
 
@@ -380,9 +380,18 @@ namespace CruiseControl
                 Log?.PopStack();
             }
 
-            public float Range(float Min, float Max)
+            public float Range(float value, float min, float max)
             {
-                return Math.Max(Math.Min(Min,Max),Max);
+                float buffer = value;
+                if(min > value)
+                {
+                    buffer = min;
+                }
+                if(value > max)
+                {
+                    buffer = max;
+                }
+                return buffer;
             }
 
             public void Decellerate()
@@ -393,14 +402,14 @@ namespace CruiseControl
                 float velocityDelta = Math.Abs(TargetVelocity + ErrorMargin - CurrentVelocity);
                 float forceRequiredIonAndAtmospheric = GetRequiredThrustForce() * velocityDelta;
                 float forceRequiredHydrogen = forceRequiredIonAndAtmospheric - ForceAvailableBackwardIonAndAtmospheric;
-                float overrideIonAndAtmosphericThrusters = Range(0f, (forceRequiredIonAndAtmospheric / Math.Min(1,ForceAvailableBackwardIonAndAtmospheric)) * 100f);
+                float overrideIonAndAtmosphericThrusters = Range((forceRequiredIonAndAtmospheric / Math.Min(1, ForceAvailableBackwardIonAndAtmospheric)) * 100f, 0f, 100f);
                 float overrideHydrogenThrusters = 0f;
 
                 BatchThrustOverride(ThrustersBackwardAtmosphericAndIon, overrideIonAndAtmosphericThrusters);
 
                 if (forceRequiredHydrogen > 0)
                 {
-                    overrideHydrogenThrusters = Range(0f, (forceRequiredHydrogen / ForceAvailableBackwardHydrogen) * 100f);
+                    overrideHydrogenThrusters = Range((forceRequiredHydrogen / ForceAvailableBackwardHydrogen) * 100f, 0f, 100f);
                 }
                 BatchThrustOverride(ThrustersBackwardHydrogen, overrideHydrogenThrusters);
 
