@@ -43,7 +43,17 @@ namespace CruiseControl
         string TAG_LCD_VIEW= "[BCC]";
         string TAG_VIEW_CONTROLLER = "[BCC]";
 
-        string TEMPLATE_DEFAULT_LCD = "";
+        string TEMPLATE_DEFAULT_LCD = ""
+            + "[Cruise Control {{NOW}}]\n"
+            + "Speed: {{CURRENT_FORWARD_VELOCITY}}/{{TARGET_FORWARD_VELOCITY}} m/s\n"
+            + "Diff: {{FORWARD_VELOCITY_DIFF}}\n"
+            + "Mode: {{MODE_OF_OPERATION}}\n"
+            + "\n"
+            + "Non-Hydrogen Forward: {{OVERRIDE_ATMOSPHERIC_AND_ION}} %\n"
+            + "Hydrogen, Forward: {{OVERRIDE_FORWARD_HYDROGEN}} %\n"
+            + "\n"
+            + "Non-Hydrogen Backward: {{OVERRIDE_BACKWARD_ATMOSPEHRIC_AND_ION}} %\n"
+            + "Hydrogen Backward: {{OVERRIDE_BACKWARD_HYDROGEN}} %";
 
 
         public Program()
@@ -343,8 +353,8 @@ namespace CruiseControl
                 }
                 BatchThrustOverride(ThrustersForwardHydrogen, overrideHydrogenThrusters);
 
-                Log?.IfDebug?.Debug("Override forward Ion/Atmospheric: {0}% ({1} / {2} N)", overrideIonAndAtmosphericThrusters, forceRequiredIonAndAtmospheric, ForceAvailableForwardIonAndAtmospheric);
-                Log?.IfDebug?.Debug("Override forward Hydrogen: {0}% ({1} / {2} N)", overrideHydrogenThrusters, forceRequiredHydrogen, ForceAvailableForwardHydrogen);
+                Log?.IfDebug?.Debug("Override forward Ion/Atmospheric: {0}%", overrideIonAndAtmosphericThrusters);
+                Log?.IfDebug?.Debug("Override forward Hydrogen: {0}%", overrideHydrogenThrusters);
 
                 BatchThrustOverride(ThrustersBackwardAtmosphericAndIon, 5f);
                 BatchThrustOverride(ThrustersBackwardHydrogen, 5f);
@@ -352,15 +362,10 @@ namespace CruiseControl
 
                 state.VelocityDelta = velocityDelta;
 
-                state.ForceAppliedBackwardAtmosphericAndIon = 5f;
-                state.ForceAppliedBackwardHydrogen = 5f;
-                state.ForceAppliedForwardAtmosphericAndIon = overrideIonAndAtmosphericThrusters;
-                state.ForceAppliedForwardHydrogen = overrideHydrogenThrusters;
-
-                state.ForceRequiredBackwardAtmosphericAndIon = 5f;
-                state.ForceRequiredBackwardHydrogen = 5f;
-                state.ForceRequiredForwardAtmosphericAndIon = forceRequiredIonAndAtmospheric;
-                state.ForceRequiredForwardHydrogen = forceRequiredHydrogen;
+                state.OverrideBackwardAtmosphericAndIon = 5f;
+                state.OverrideBackwardHydrogen = 5f;
+                state.OverrideForwardAtmosphericAndIon = overrideIonAndAtmosphericThrusters;
+                state.OverrideForwardHydrogen = overrideHydrogenThrusters;
 
                 Log?.PopStack();
             }
@@ -389,8 +394,8 @@ namespace CruiseControl
                 }
                 BatchThrustOverride(ThrustersBackwardHydrogen, overrideHydrogenThrusters);
 
-                Log?.IfDebug?.Debug("Override backward Ion/Atmospheric: {0}% ({1} / {2} N)", overrideIonAndAtmosphericThrusters, forceRequiredIonAndAtmospheric, ForceAvailableBackwardIonAndAtmospheric);
-                Log?.IfDebug?.Debug("Override backward Hydrogen: {0}% ({1} / {2} N)", overrideHydrogenThrusters, forceRequiredHydrogen, ForceAvailableBackwardHydrogen);
+                Log?.IfDebug?.Debug("Override backward Ion/Atmospheric: {0}%", overrideIonAndAtmosphericThrusters);
+                Log?.IfDebug?.Debug("Override backward Hydrogen: {0}%", overrideHydrogenThrusters);
 
                 BatchThrustOverride(ThrustersForwardAtmosphericAndIon, 5f);
                 BatchThrustOverride(ThrustersForwardHydrogen, 5f);
@@ -398,15 +403,10 @@ namespace CruiseControl
 
                 state.VelocityDelta = velocityDelta;
 
-                state.ForceAppliedBackwardAtmosphericAndIon = overrideIonAndAtmosphericThrusters;
-                state.ForceAppliedBackwardHydrogen = overrideHydrogenThrusters;
-                state.ForceAppliedForwardAtmosphericAndIon = 5f;
-                state.ForceAppliedForwardHydrogen = 5f;
-
-                state.ForceRequiredBackwardAtmosphericAndIon = forceRequiredIonAndAtmospheric;
-                state.ForceRequiredBackwardHydrogen = forceRequiredHydrogen;
-                state.ForceRequiredForwardAtmosphericAndIon = 5f;
-                state.ForceRequiredForwardHydrogen = 5f;
+                state.OverrideBackwardAtmosphericAndIon = overrideIonAndAtmosphericThrusters;
+                state.OverrideBackwardHydrogen = overrideHydrogenThrusters;
+                state.OverrideForwardAtmosphericAndIon = 5f;
+                state.OverrideForwardHydrogen = 5f;
 
                 Log?.PopStack();
             }
@@ -423,16 +423,11 @@ namespace CruiseControl
                 BatchThrustOverride(ThrustersBackwardAtmosphericAndIon, 0f);
                 BatchThrustOverride(ThrustersForwardHydrogen, 0f);
                 BatchThrustOverride(ThrustersBackwardHydrogen, 0f);
-
-                state.ForceAppliedBackwardAtmosphericAndIon = 0;
-                state.ForceAppliedBackwardHydrogen = 0;
-                state.ForceAppliedForwardAtmosphericAndIon = 0;
-                state.ForceAppliedForwardHydrogen = 0;
-
-                state.ForceRequiredBackwardAtmosphericAndIon = 0;
-                state.ForceRequiredBackwardHydrogen = 0;
-                state.ForceRequiredForwardAtmosphericAndIon = 0;
-                state.ForceRequiredForwardHydrogen = 0;
+;
+                state.OverrideBackwardAtmosphericAndIon = 0f;
+                state.OverrideBackwardHydrogen = 0f;
+                state.OverrideForwardAtmosphericAndIon = 0f;
+                state.OverrideForwardHydrogen = 0f;
 
                 Log?.IfDebug?.Debug("All Thruster Overrides disabled");
                 Log?.PopStack();
@@ -451,15 +446,10 @@ namespace CruiseControl
                 BatchThrustOverride(ThrustersForwardHydrogen, 5f);
                 BatchThrustOverride(ThrustersBackwardHydrogen, 5f);
 
-                state.ForceAppliedBackwardAtmosphericAndIon = 5f;
-                state.ForceAppliedBackwardHydrogen = 5f;
-                state.ForceAppliedForwardAtmosphericAndIon = 5f;
-                state.ForceAppliedForwardHydrogen = 5f;
-
-                state.ForceRequiredBackwardAtmosphericAndIon = 5f;
-                state.ForceRequiredBackwardHydrogen = 5f;
-                state.ForceRequiredForwardAtmosphericAndIon = 5f;
-                state.ForceRequiredForwardHydrogen = 5f;
+                state.OverrideBackwardAtmosphericAndIon = 5f;
+                state.OverrideBackwardHydrogen = 5f;
+                state.OverrideForwardAtmosphericAndIon = 5f;
+                state.OverrideForwardHydrogen = 5f;
 
 
                 Log?.IfDebug?.Debug("All Thrusters set to Idle at {0} % Override", 5f);
@@ -661,25 +651,10 @@ namespace CruiseControl
             {
                 private BMyCruiseControl CruiseControl { get; }
 
-                public float ForceAvailableForwardHydrogen { get { return CruiseControl.ForceAvailableForwardHydrogen; } }
-                public float ForceRequiredForwardHydrogen = 0f;
-                public float ForceAppliedForwardHydrogen = 0f;
-                public float OverrideAppliedForwardHydrogen = 0f;
-
-                public float ForceAvailableBackwardHydrogen { get { return CruiseControl.ForceAvailableBackwardHydrogen; } }
-                public float ForceRequiredBackwardHydrogen = 0f;
-                public float ForceAppliedBackwardHydrogen = 0f;
-                public float OverrideAppliedBackwardHydrogen = 0f;
-
-                public float ForceAvailableForwarAtmosphericAndIon { get { return CruiseControl.ForceAvailableForwardIonAndAtmospheric; } }
-                public float ForceRequiredForwardAtmosphericAndIon = 0f;
-                public float ForceAppliedForwardAtmosphericAndIon = 0f;
-                public float OverrideAppliedForwardAtmosphericAndIon = 0f;
-
-                public float ForceAvailableBackwardAtmosphericAndIon { get { return CruiseControl.ForceAvailableBackwardIonAndAtmospheric; } }
-                public float ForceRequiredBackwardAtmosphericAndIon = 0f;
-                public float ForceAppliedBackwardAtmosphericAndIon = 0f;
-                public float OverrideAppliedBackwardAtmosphericAndIon = 0f;
+                public float OverrideForwardHydrogen = 0f;
+                public float OverrideBackwardHydrogen = 0f;
+                public float OverrideForwardAtmosphericAndIon = 0f;
+                public float OverrideBackwardAtmosphericAndIon = 0f;
 
                 public string Operation = "OFF";
 
@@ -725,26 +700,14 @@ namespace CruiseControl
                 this.Log = Log;
                 
                 SetValue("{{NOW}}", DateTime.Now);
-                SetValue("{{CURRENT_FORWARD_VELOCITY}}", Math.Round(CruiseControl.state.CurrentForwardVelocity, 2), "{ 0:000.00}");
-                SetValue("{{TARGET_FORWARD_VELOCITY}}", Math.Round(CruiseControl.state.SetVelocity, 2), "{ 0:000.00}");
-                SetValue("{{FORWARD_VELOCITY_DIFF}}", Math.Round(CruiseControl.state.SetVelocity - CruiseControl.state.CurrentForwardVelocity, 2), "{0:000.00}");
+                SetValue("{{CURRENT_FORWARD_VELOCITY}}", Math.Round(CruiseControl.state.CurrentForwardVelocity, 2), "{0:0.00}");
+                SetValue("{{TARGET_FORWARD_VELOCITY}}", Math.Round(CruiseControl.state.SetVelocity, 2), "{0:0.00}");
+                SetValue("{{FORWARD_VELOCITY_DIFF}}", Math.Round(CruiseControl.state.SetVelocity - CruiseControl.state.CurrentForwardVelocity, 2), "{0:0.00}");
                 SetValue("{{MODE_OF_OPERATION}}", CruiseControl.state.Operation);
-                SetValue("{{FORCE_AVAILABLE_ATMOSPHERIC_AND_ION}}", Math.Round(CruiseControl.state.ForceAvailableForwarAtmosphericAndIon, 2), "{0:000000000.00}");
-                SetValue("{{FORCE_REQUIREC_ATMOSPHERIC_AND_ION}}", Math.Round(CruiseControl.state.ForceRequiredForwardAtmosphericAndIon, 2), "{0:000000000.00}");
-                SetValue("{{FORCE_APPLIED_ATMOSPHERIC_AND_ION}}", Math.Round(CruiseControl.state.ForceAppliedForwardAtmosphericAndIon, 2), "{0:000000000.00}");
-                SetValue("{{OVERRIDE_APPLIED_ATMOSPHERIC_AND_ION}}", Math.Round(CruiseControl.state.OverrideAppliedForwardAtmosphericAndIon, 2), "{0:000.00}");
-                SetValue("{{FORCE_AVAILABLE_FORWARD_HYDROGEN}}", Math.Round(CruiseControl.state.ForceAvailableForwardHydrogen, 2), "{0:000000000.00}");
-                SetValue("{{FORCE_REQUIRED_FORWARD_HYDROGEN}}", Math.Round(CruiseControl.state.ForceRequiredForwardHydrogen, 2), "{0:000000000.00}");
-                SetValue("{{FORCE_APPLIED_FORWARD_HYDROGEN}}", Math.Round(CruiseControl.state.ForceAppliedForwardHydrogen, 2), "{0:000000000.00}");
-                SetValue("{{OVERRIDE_APPLIED_FORWARD_HYDROGEN}}", Math.Round(CruiseControl.state.OverrideAppliedForwardHydrogen, 2), "{0:000.00}");
-                SetValue("{{FORCE_AVAILABLE_BACKWARD_ATMOSPEHRIC_AND_ION}}", Math.Round(CruiseControl.state.ForceAvailableBackwardAtmosphericAndIon, 2), "{0:000000000.00}");
-                SetValue("{{FORCE_REQUIRED_BACKWARD_ATMOSPEHRIC_AND_ION}}", Math.Round(CruiseControl.state.ForceRequiredBackwardAtmosphericAndIon, 2), "{0:000000000.00}");
-                SetValue("{{FORCE_APPLIED_BACKWARD_ATMOSPEHRIC_AND_ION}}", Math.Round(CruiseControl.state.ForceAppliedBackwardAtmosphericAndIon, 2), "{0:000000000.00}");
-                SetValue("{{OVERRIDE_APPLIED_BACKWARD_ATMOSPEHRIC_AND_ION}}", Math.Round(CruiseControl.state.OverrideAppliedBackwardAtmosphericAndIon, 2), "{0:000.00}");
-                SetValue("{{FORCE_AVAILABLE_BACKWARD_HYDROGEN}}", Math.Round(CruiseControl.state.ForceAvailableBackwardHydrogen, 2), "{0:000000000.00}");
-                SetValue("{{FORCE_REQUIRED_BACKWARD_HYDROGEN}}", Math.Round(CruiseControl.state.ForceRequiredBackwardHydrogen, 2), "{0:000000000.00}");
-                SetValue("{{FORCE_APPLIED_BACKWARD_HYDROGEN}}", Math.Round(CruiseControl.state.ForceAppliedBackwardHydrogen, 2), "{0:000000000.00}");
-                SetValue("{{OVERRIDE_APPLIED_BACKWARD_HYDROGEN}}", Math.Round(CruiseControl.state.OverrideAppliedBackwardHydrogen, 2), "{0:000.00}");
+                SetValue("{{OVERRIDE_ATMOSPHERIC_AND_ION}}", Math.Round(CruiseControl.state.OverrideForwardAtmosphericAndIon, 2), "{0:0.00}");
+                SetValue("{{OVERRIDE_FORWARD_HYDROGEN}}", Math.Round(CruiseControl.state.OverrideForwardHydrogen, 2), "{0:0.00}");
+                SetValue("{{OVERRIDE_BACKWARD_ATMOSPEHRIC_AND_ION}}", Math.Round(CruiseControl.state.OverrideBackwardAtmosphericAndIon, 2), "{0:0.00}");
+                SetValue("{{OVERRIDE_BACKWARD_HYDROGEN}}", Math.Round(CruiseControl.state.OverrideBackwardHydrogen, 2), "{0:0.00}");
 
                 Log?.PopStack();
             }
@@ -793,7 +756,7 @@ namespace CruiseControl
         private void WriteToEcho(BMyCruiseControlView View, BMyLog4PB Log)
         {
             Log?.PushStack("WriteToEcho");
-            Echo(View.Render("[CruiseControl - {{NOW}}]\nSpeed: {{}}\nTarget: {{}}\nDiff: {{}}\nMode: {{}}"));
+            Echo(View.Render("[CruiseControl - {{NOW}}]\nSpeed: {{CURRENT_FORWARD_VELOCITY}}\nTarget: {{TARGET_FORWARD_VELOCITY}}\nDiff: {{FORWARD_VELOCITY_DIFF}}\nMode: {{MODE_OF_OPERATION}}"));
             Log?.PopStack();
         }
 
