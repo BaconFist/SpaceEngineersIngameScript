@@ -29,8 +29,6 @@ namespace CruiseControl
  
         */
 
-            //TODO: rewrite whole status output stuff (text & gui)
-            //TODO: Assign Values to state.Override* 
             //TODO: Detect if ship is docked
             //TODO: add optoin for debug => --debug="debug,trace,warn,all" --debug-lcd="tag" => if not --debug => Log = null
                     
@@ -80,6 +78,7 @@ namespace CruiseControl
 
                 IMyShipController Controller = GetController(Options.ControllerFilter, Log);
                 BMyCruiseControl CruiseControl = GetCruiseControl(Controller, Log);
+                CruiseControl.TurnOffOnIdle = Options.TurnOffOnIdle;
                 if(Options.HasSetSpeed)
                 {
                     CruiseControl.TargetVelocity = Options.SetSpeed;
@@ -191,7 +190,7 @@ namespace CruiseControl
             const string ID_INCREMENT = "inc";
             const string ID_DECREMENT = "dec";
             const string ID_CONTROLLER_FILTER = "ControllerFilter";
-
+            const string ID_TURN_OFF_ON_IDLE = "TurnOffOnIdle";
 
             public float IncrementSpeed { get; }
             public float SetSpeed { get; }
@@ -199,6 +198,8 @@ namespace CruiseControl
             public string ControllerFilter { get; }
 
             public bool HasSetSpeed = false;
+
+            public bool TurnOffOnIdle = false;
 
             public CruiseControlOptionBag(BaconArgs Args)
             {
@@ -227,7 +228,11 @@ namespace CruiseControl
                 {
                     IncrementSpeed -= buffer;
                 }
-
+                bool bufferTurnOfOnIdle = false;
+                if(Args.hasOption(ID_TURN_OFF_ON_IDLE) && bool.TryParse(Args.getOption(ID_TURN_OFF_ON_IDLE)[0], out bufferTurnOfOnIdle))
+                {
+                        TurnOffOnIdle = bufferTurnOfOnIdle;
+                }
                 ControllerFilter = Args.hasOption(ID_CONTROLLER_FILTER) ? Args.getOption(ID_CONTROLLER_FILTER)[0] : "";
 
             }
@@ -243,6 +248,11 @@ namespace CruiseControl
             const byte THRUSTER_TYPE_ION = 1;
             const byte THRUSTER_TYPE_HYDROGEN = 2;
             const byte THRUSTER_TYPE_ATMOSPHERIC = 4;
+
+            const byte OVERRIDE_FORCE_ON = 1;
+            const byte OVERRIDE_FORCE_OFF = 2;
+
+            public bool TurnOffOnIdle = false;
 
             /// <summary>
             /// defines wich type of thruster has wich propulsion system
@@ -342,28 +352,28 @@ namespace CruiseControl
                 float velocityDelta = Math.Abs(TargetVelocity - ErrorMargin - CurrentVelocity);
                 float forceRequiredIonAndAtmospheric = GetRequiredThrustForce() * velocityDelta;
                 float forceRequiredHydrogen = forceRequiredIonAndAtmospheric - ForceAvailableForwardIonAndAtmospheric;
-                float overrideIonAndAtmosphericThrusters = Range(5f, (forceRequiredIonAndAtmospheric / Math.Min(1, ForceAvailableForwardIonAndAtmospheric)) * 100f);
+                float overrideIonAndAtmosphericThrusters = Range(0f, (forceRequiredIonAndAtmospheric / Math.Min(1, ForceAvailableForwardIonAndAtmospheric)) * 100f);
                 float overrideHydrogenThrusters = 0f;
 
                 BatchThrustOverride(ThrustersForwardAtmosphericAndIon, overrideIonAndAtmosphericThrusters);
 
                 if (forceRequiredHydrogen > 0)
                 {
-                    overrideHydrogenThrusters = Range(5f, (forceRequiredHydrogen / ForceAvailableBackwardHydrogen) * 100f);
+                    overrideHydrogenThrusters = Range(0f, (forceRequiredHydrogen / ForceAvailableBackwardHydrogen) * 100f);
                 }
                 BatchThrustOverride(ThrustersForwardHydrogen, overrideHydrogenThrusters);
 
                 Log?.IfDebug?.Debug("Override forward Ion/Atmospheric: {0}%", overrideIonAndAtmosphericThrusters);
                 Log?.IfDebug?.Debug("Override forward Hydrogen: {0}%", overrideHydrogenThrusters);
 
-                BatchThrustOverride(ThrustersBackwardAtmosphericAndIon, 5f);
-                BatchThrustOverride(ThrustersBackwardHydrogen, 5f);
-                Log?.IfDebug?.Debug("Set backward Thrusters to Idle ({0} %)", 5f);
+                BatchThrustOverride(ThrustersBackwardAtmosphericAndIon, 0f);
+                BatchThrustOverride(ThrustersBackwardHydrogen, 0f);
+                Log?.IfDebug?.Debug("Set backward Thrusters to Idle ({0} %)", 0f);
 
                 state.VelocityDelta = velocityDelta;
 
-                state.OverrideBackwardAtmosphericAndIon = 5f;
-                state.OverrideBackwardHydrogen = 5f;
+                state.OverrideBackwardAtmosphericAndIon = 0f;
+                state.OverrideBackwardHydrogen = 0f;
                 state.OverrideForwardAtmosphericAndIon = overrideIonAndAtmosphericThrusters;
                 state.OverrideForwardHydrogen = overrideHydrogenThrusters;
 
@@ -383,30 +393,30 @@ namespace CruiseControl
                 float velocityDelta = Math.Abs(TargetVelocity + ErrorMargin - CurrentVelocity);
                 float forceRequiredIonAndAtmospheric = GetRequiredThrustForce() * velocityDelta;
                 float forceRequiredHydrogen = forceRequiredIonAndAtmospheric - ForceAvailableBackwardIonAndAtmospheric;
-                float overrideIonAndAtmosphericThrusters = Range(5f, (forceRequiredIonAndAtmospheric / Math.Min(1,ForceAvailableBackwardIonAndAtmospheric)) * 100f);
+                float overrideIonAndAtmosphericThrusters = Range(0f, (forceRequiredIonAndAtmospheric / Math.Min(1,ForceAvailableBackwardIonAndAtmospheric)) * 100f);
                 float overrideHydrogenThrusters = 0f;
 
                 BatchThrustOverride(ThrustersBackwardAtmosphericAndIon, overrideIonAndAtmosphericThrusters);
 
                 if (forceRequiredHydrogen > 0)
                 {
-                    overrideHydrogenThrusters = Range(5f, (forceRequiredHydrogen / ForceAvailableBackwardHydrogen) * 100f);
+                    overrideHydrogenThrusters = Range(0f, (forceRequiredHydrogen / ForceAvailableBackwardHydrogen) * 100f);
                 }
                 BatchThrustOverride(ThrustersBackwardHydrogen, overrideHydrogenThrusters);
 
                 Log?.IfDebug?.Debug("Override backward Ion/Atmospheric: {0}%", overrideIonAndAtmosphericThrusters);
                 Log?.IfDebug?.Debug("Override backward Hydrogen: {0}%", overrideHydrogenThrusters);
 
-                BatchThrustOverride(ThrustersForwardAtmosphericAndIon, 5f);
-                BatchThrustOverride(ThrustersForwardHydrogen, 5f);
-                Log?.IfDebug?.Debug("Set forward Thrusters to Idle ({0} %)", 5f);
+                BatchThrustOverride(ThrustersForwardAtmosphericAndIon, 0f);
+                BatchThrustOverride(ThrustersForwardHydrogen, 0f);
+                Log?.IfDebug?.Debug("Set forward Thrusters to Idle ({0} %)", 0f);
 
                 state.VelocityDelta = velocityDelta;
 
                 state.OverrideBackwardAtmosphericAndIon = overrideIonAndAtmosphericThrusters;
                 state.OverrideBackwardHydrogen = overrideHydrogenThrusters;
-                state.OverrideForwardAtmosphericAndIon = 5f;
-                state.OverrideForwardHydrogen = 5f;
+                state.OverrideForwardAtmosphericAndIon = 0f;
+                state.OverrideForwardHydrogen = 0f;
 
                 Log?.PopStack();
             }
@@ -419,10 +429,10 @@ namespace CruiseControl
                 Log?.PushStack("Disable");
                 state.Operation = "OFF";
 
-                BatchThrustOverride(ThrustersForwardAtmosphericAndIon, 0f);
-                BatchThrustOverride(ThrustersBackwardAtmosphericAndIon, 0f);
-                BatchThrustOverride(ThrustersForwardHydrogen, 0f);
-                BatchThrustOverride(ThrustersBackwardHydrogen, 0f);
+                BatchThrustOverride(ThrustersForwardAtmosphericAndIon, 0f, OVERRIDE_FORCE_ON);
+                BatchThrustOverride(ThrustersBackwardAtmosphericAndIon, 0f, OVERRIDE_FORCE_ON);
+                BatchThrustOverride(ThrustersForwardHydrogen, 0f, OVERRIDE_FORCE_ON);
+                BatchThrustOverride(ThrustersBackwardHydrogen, 0f, OVERRIDE_FORCE_ON);
 ;
                 state.OverrideBackwardAtmosphericAndIon = 0f;
                 state.OverrideBackwardHydrogen = 0f;
@@ -441,15 +451,15 @@ namespace CruiseControl
                 Log?.PushStack("Idle");
                 state.Operation = "IDLE";
 
-                BatchThrustOverride(ThrustersForwardAtmosphericAndIon, 5f);
-                BatchThrustOverride(ThrustersBackwardAtmosphericAndIon, 5f);
-                BatchThrustOverride(ThrustersForwardHydrogen, 5f);
-                BatchThrustOverride(ThrustersBackwardHydrogen, 5f);
+                BatchThrustOverride(ThrustersForwardAtmosphericAndIon, 0f);
+                BatchThrustOverride(ThrustersBackwardAtmosphericAndIon, 0f);
+                BatchThrustOverride(ThrustersForwardHydrogen, 0f);
+                BatchThrustOverride(ThrustersBackwardHydrogen, 0f);
 
-                state.OverrideBackwardAtmosphericAndIon = 5f;
-                state.OverrideBackwardHydrogen = 5f;
-                state.OverrideForwardAtmosphericAndIon = 5f;
-                state.OverrideForwardHydrogen = 5f;
+                state.OverrideBackwardAtmosphericAndIon = 0f;
+                state.OverrideBackwardHydrogen = 0f;
+                state.OverrideForwardAtmosphericAndIon = 0f;
+                state.OverrideForwardHydrogen = 0f;
 
 
                 Log?.IfDebug?.Debug("All Thrusters set to Idle at {0} % Override", 5f);
@@ -461,12 +471,26 @@ namespace CruiseControl
             /// </summary>
             /// <param name="Thrusters"></param>
             /// <param name="value"></param>
-            private void BatchThrustOverride(List<IMyThrust> Thrusters, float value)
+            private void BatchThrustOverride(List<IMyThrust> Thrusters, float value, byte options = 0)
             {
                 Log?.PushStack("BatchThrustOverride");
                 foreach(IMyThrust Thruster in Thrusters)
                 {
-                    Thruster?.SetValueFloat("Override", value);
+                    if (TurnOffOnIdle)
+                    {
+                        if ((options & OVERRIDE_FORCE_OFF) > 0 || (value == 0f && (options & OVERRIDE_FORCE_ON) == 0))
+                        {
+                            Thruster?.ApplyAction("OnOff_Off");
+                        }
+                        if ((options & OVERRIDE_FORCE_ON) > 0 || (value > 0f && (options & OVERRIDE_FORCE_OFF) == 0))
+                        {
+                            Thruster?.ApplyAction("OnOff_On");
+                        }
+                    } else if(value > 0f)
+                    {
+                        Thruster?.ApplyAction("OnOff_On");
+                    }
+                    Thruster?.SetValueFloat("Override", value);                    
                 }
                 Log?.IfDebug.Debug("ThrustOverride set to {0} on [{1}]", value, string.Join(",", Thrusters.ConvertAll<string>(t => t.CustomName)));
                 Log?.PopStack();
