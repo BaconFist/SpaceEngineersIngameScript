@@ -99,6 +99,33 @@ namespace CruiseControlRefactored
                 Env.Log?.PopStack();
             }
 
+            public void Run()
+            {
+                Env.Log?.PushStack("Run");
+                if (Env.updateSource.HasFlag(UpdateType.Update10))
+                {
+                    RunUpdate10();
+                }
+                if (Env.updateSource.HasFlag(UpdateType.Update100))
+                {
+                    RunUpdate100();
+                }
+                Env.Log?.PopStack();
+            }
+            private void RunUpdate10()
+            {
+                Env.Log?.PushStack("RunUpdate10");
+                //TODO: save forward velovity and time XOR calc ACCEL and Update thrusters and stuff
+                Env.Log?.PopStack();
+            }
+
+            private void RunUpdate100()
+            {
+                Env.Log?.PushStack("RunUpdate100");
+                //TODO: Make View Stuff
+                Env.Log?.PopStack();
+            }
+
             private void UpdateControllerFromArgument()
             {
                 Env.Log?.PushStack("UpdateControllerFromArgument");
