@@ -42,6 +42,7 @@ namespace CruiseControlRefactored
             {"dec","--{0}=\"NUMBER\";decimal number;N/A;remove this from target speed."},
             {"LogLCD","--{0}=\"TAG\";any string;[BCC-LOG];write Logfile to any LCD with TAG in name."},
             {"LogLevel","--{0}=\"LEVEL\";one of: trace,debug,info,warn,error,fatal or \"OFF\" to diable;error;the verbosity of the log. (trace includes debug includes info includes warn inculdes error includes fatal)"},
+            {"NoPilot","--{0};N/A;N/A;if set there is no pilot required for CruiseControl." }
         };
 
         BaconCruiseControl CruiseControl;
@@ -80,7 +81,16 @@ namespace CruiseControlRefactored
         class BaconCruiseControl
         {
             private IMyShipController RefecenceController;
-            public Environment Env { get; set; }
+            private Environment _environment;
+            public  Environment Env {
+                get {
+                    return _environment;
+                }
+                set {
+                    _environment = value;
+                    UpdateControllerFromArgument();
+                }
+            }
 
             public BaconCruiseControl(Environment Env)
             {
@@ -110,6 +120,40 @@ namespace CruiseControlRefactored
             private void UpdateControlerByAutodetect()
             {
                 Env.Log?.PushStack("UpdateControlerByAutodetect");
+                List<IMyShipController> ControllerBag = new List<IMyShipController>();
+                Env.App.GridTerminalSystem.GetBlocksOfType<IMyShipController>(ControllerBag, (
+                    c =>
+                    c.CanControlShip
+                    && c.IsWorking
+                    && c.ControlThrusters
+                    && (c.IsUnderControl || Env.GlobalArgs.hasOption("NoPilot"))
+                    && c.CubeGrid.Equals(Env.App.Me.CubeGrid)
+                    && c.IsMainCockpit
+                ));
+                if (ControllerBag.Count == 0)
+                {
+                    Env.Log?.IfWarn?.Warn("W2");
+                    Env.App.GridTerminalSystem.GetBlocksOfType<IMyShipController>(ControllerBag, (
+                        c =>
+                        c.CanControlShip
+                        && c.IsWorking
+                        && c.ControlThrusters
+                        && (c.IsUnderControl || Env.GlobalArgs.hasOption("NoPilot"))
+                        && c.CubeGrid.Equals(Env.App.Me.CubeGrid)
+                    ));
+                }
+
+                if (ControllerBag.Count == 0)
+                {
+                    Env.Log?.IfFatal?.Fatal("F2");
+                }
+                else {
+                    if (ControllerBag.Count > 1)
+                    {
+                        Env.Log?.IfWarn?.Warn("W3", ControllerBag.Count, ControllerBag[0]);
+                    }
+                    RefecenceController = ControllerBag[0];
+                }
 
                 Env.Log?.PopStack();
             }
@@ -194,7 +238,10 @@ namespace CruiseControlRefactored
                 {"F1","no Cockpit or Remote with \"{0}\" in it's Name found on Grid \"{1}\""},
                 {"W1","there are {1} Controllers with \"{0}\" in it's name on Grid \"{2}\". Using first one \"{3}\""},
                 {"D1","disabled referemce Controller"},
-                {"I1","Log Started, Environment initialized."}
+                {"I1","Log Started, Environment initialized."},
+                {"W2","No suitable Maincockpit found. Looking for alternative Controllers."},
+                {"F2","Unable to autodetect any Shipcontroller. MUST BE -> working,can control the ship and thruster,same grid as PB,hase a pilot (unless NoPilot Option is set)"}
+                {"W3","there are {0} Controllers suitable for control. Using first one \"{1}\""},
             };
 
             public Environment(Program App, string argument, UpdateType updateSource)
