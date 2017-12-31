@@ -59,7 +59,8 @@ namespace CruiseControl
             Runtime.UpdateFrequency = UpdateFrequency.Update10 | UpdateFrequency.Update100;
         }
 
-        public void Main(string argument, UpdateType updateSource)        {
+        public void Main(string argument, UpdateType updateSource)
+        {
             BMyLog4PB Log = new BMyLog4PB(this, BMyLog4PB.E_ALL ^ BMyLog4PB.E_TRACE, new BMyLog4PB.BMyCustomDataAppender(this));
             Log.AutoFlush = true;
             try
