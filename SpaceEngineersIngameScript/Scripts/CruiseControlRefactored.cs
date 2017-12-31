@@ -88,7 +88,7 @@ namespace CruiseControlRefactored
                 }
                 set {
                     _environment = value;
-                    UpdateControllerFromArgument();
+                    UpdateController();
                 }
             }
 
@@ -126,9 +126,10 @@ namespace CruiseControlRefactored
                 Env.Log?.PopStack();
             }
 
-            private void UpdateControllerFromArgument()
+            private void UpdateController()
             {
                 Env.Log?.PushStack("UpdateControllerFromArgument");
+                IMyShipController OldController = RefecenceController;
                 RefecenceController = null;
                 Env.Log?.IfDebug?.Debug("D1");
                 string optionKey = "SetController";
@@ -141,6 +142,11 @@ namespace CruiseControlRefactored
                         UpdateControllerByTag(findBy);
                         break;
                 }
+                if (!OldController.Equals(RefecenceController))
+                {
+                    OnControllerChanged(OldController);
+                }
+
                 Env.Log?.PopStack();
             }
 
@@ -202,6 +208,35 @@ namespace CruiseControlRefactored
                     Env.Log?.IfWarn.Warn("W1",tag,ControllerBag.Count,Env.App.Me.CubeGrid.CustomName, ControllerBag[ControllerBag.Count-1].CustomName);
                 }
                 RefecenceController = ControllerBag[0];
+                Env.Log?.PopStack();
+            }
+
+            private void OnControllerChanged(IMyShipController OldController)
+            {
+                Env.Log?.PushStack("OnControllerChanged");
+                if(OldController == null)
+                {
+                    Env.Log?.IfDebug?.Debug("D2",RefecenceController.CustomName);
+                    this.ScanThrusters();
+                }
+                Matrix oldMatrix;
+                Matrix refMatrix;
+                OldController.Orientation.GetMatrix(out oldMatrix);
+                this.RefecenceController.Orientation.GetMatrix(out refMatrix);
+                if (oldMatrix.Forward.Equals(refMatrix.Forward))
+                {
+                    Env.Log?.IfDebug?.Debug("D3", OldController.CustomName, RefecenceController.CustomName);
+                } else {
+                    Env.Log?.IfDebug?.Debug("D2", RefecenceController.CustomName);
+                    this.ScanThrusters();
+                }
+                Env.Log?.PopStack();
+            }
+
+            private void ScanThrusters()
+            {
+                Env.Log?.PushStack("OnControllerChanged");
+                //TODO: Scan all the thrusters for ReferenceController
                 Env.Log?.PopStack();
             }
         }
@@ -267,8 +302,10 @@ namespace CruiseControlRefactored
                 {"D1","disabled referemce Controller"},
                 {"I1","Log Started, Environment initialized."},
                 {"W2","No suitable Maincockpit found. Looking for alternative Controllers."},
-                {"F2","Unable to autodetect any Shipcontroller. MUST BE -> working,can control the ship and thruster,same grid as PB,hase a pilot (unless NoPilot Option is set)"}
+                {"F2","Unable to autodetect any Shipcontroller. MUST BE -> working,can control the ship and thruster,same grid as PB,hase a pilot (unless NoPilot Option is set)"},
                 {"W3","there are {0} Controllers suitable for control. Using first one \"{1}\""},
+                {"D2","Controller changed to \"{0}\" -> requires Thruster scan." },
+                {"D3","Detected Controller \"{1}\" has same orientation as \"{0}\" -> use existing thruster collection."},
             };
 
             public Environment(Program App, string argument, UpdateType updateSource)
