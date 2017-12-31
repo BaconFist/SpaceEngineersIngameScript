@@ -27,13 +27,27 @@ namespace Log4PB
             public const byte E_ERROR = 2; //Error events that might still allow the application to continue running.
             public const byte E_FATAL = 1; //Highest	Very severe error events that will presumably lead the application to abort.
 
-            public BMyLog4PB IfFatal{get{return If(E_FATAL);}}
-            public BMyLog4PB IfError{get{return If(E_ERROR);}}
-            public BMyLog4PB IfWarn{get{return If(E_WARN);}}
-            public BMyLog4PB IfInfo{get{return If(E_INFO);}}
-            public BMyLog4PB IfDebug{get{return If(E_DEBUG);}}
-            public BMyLog4PB IfTrace{get{return If(E_TRACE);}}
+            public BMyLog4PB IfFatal{get{
+                    return ((E_FATAL & Filter) != 0) ? this : null;
+                } }
+            public BMyLog4PB IfError{get{
+                    return ((E_ERROR & Filter) != 0) ? this : null;
+                } }
+            public BMyLog4PB IfWarn{get{
+                    return ((E_WARN & Filter) != 0) ? this : null;
+                } }
+            public BMyLog4PB IfInfo{get{
+                    return ((E_INFO & Filter) != 0) ? this : null;
+                } }
+            public BMyLog4PB IfDebug{get{
+                    return ((E_DEBUG & Filter) != 0) ? this : null;
+                } }
+            public BMyLog4PB IfTrace{get{
+                    return ((E_TRACE & Filter) != 0) ? this : null;
+                } }           
 
+
+            private Dictionary<string, string> PredefindedMessages = new Dictionary<string, string>();
 
             private Dictionary<string, string> formatMarkerMap = new Dictionary<string, string>() {
                 {"{Date}","{0}"},
@@ -74,12 +88,27 @@ namespace Log4PB
                     AddAppender(Appender);
                 }
             }
+            public void SetMessage(string key, string message)
+            {
+                if (!PredefindedMessages.ContainsKey(key))
+                {
+                    PredefindedMessages.Add(key,message);
+                } else
+                {
+                    PredefindedMessages[key] = message;
+                }
+            }
+            private string TryGetPredefinedMessage(string key)
+            {
+                return PredefindedMessages.ContainsKey(key) ? PredefindedMessages[key] : key;
+            }
             private string compileFormat(string value)
             {
                 string format = value;
                 foreach (var item in formatMarkerMap)
                 {
-                    format = format?.Replace(item.Key, item.Value);
+                    
+                    format = (format != null )?format.Replace(item.Key, item.Value):null;
                 }
                 return format;
             }
@@ -107,7 +136,7 @@ namespace Log4PB
             }
             public string StackToString()
             {
-                if (If(E_TRACE) != null)
+                if (IfTrace != null)
                 {
                     string[] buffer = Stack.ToArray();
                     Array.Reverse(buffer);
@@ -127,43 +156,57 @@ namespace Log4PB
 
                 return this;
             }
-            public BMyLog4PB If(byte filter)
-            {
-                return ((filter & Filter) != 0) ? this : null;
-            }
             public BMyLog4PB Fatal(string format, params object[] values)
             {
-                If(E_FATAL)?.Append("FATAL", format, values);
+                
+                if(IfFatal != null)
+                    Append("FATAL", format, values);
                 return this;
             }
             public BMyLog4PB Error(string format, params object[] values)
             {
-                If(E_ERROR)?.Append("ERROR", format, values);
+                if(IfError != null)
+                    Append("ERROR", format, values);
                 return this;
             }
             public BMyLog4PB Warn(string format, params object[] values)
             {
-                If(E_WARN)?.Append("WARN", format, values);
+                if(IfWarn != null)
+                    Append("WARN", format, values);
                 return this;
             }
             public BMyLog4PB Info(string format, params object[] values)
             {
-                If(E_INFO)?.Append("INFO", format, values);
+                if(IfInfo != null)
+                    Append("INFO", format, values);
                 return this;
             }
             public BMyLog4PB Debug(string format, params object[] values)
             {
-                If(E_DEBUG)?.Append("DEBUG", format, values);
+                if(IfDebug != null)
+                    Append("DEBUG", format, values);
                 return this;
             }
             public BMyLog4PB Trace(string format, params object[] values)
             {
-                If(E_TRACE)?.Append("TRACE", format, values);
+                if(IfTrace != null)
+                    Append("TRACE", format, values);
                 return this;
             }
             private void Append(string level, string format, params object[] values)
             {
                 DateTime DT = DateTime.Now;
+
+                format = TryGetPredefinedMessage(format);
+                string formattedMessage;
+                try
+                {
+                    formattedMessage = string.Format(format, values);
+                } catch (FormatException e)
+                {
+                    formattedMessage = format + " [BMYLOG4PB FATAL]: " + e.Message;
+                }
+
                 var message = new BMyMessage(
                     DT.ToShortDateString(),
                     DT.ToLongTimeString(),
@@ -171,7 +214,7 @@ namespace Log4PB
                     level,
                     Assembly.Runtime.CurrentInstructionCount,
                     Assembly.Runtime.MaxInstructionCount,
-                    string.Format(format, values),
+                    formattedMessage,
                     StackToString(),
                     Assembly.Me.CustomName
                 );
@@ -357,6 +400,8 @@ namespace Log4PB
                 public abstract void Flush();
             }
         }
+
+        // public class BMyLog4PB{public const byte E_ALL=63;public const byte E_TRACE=32;public const byte E_DEBUG=16;public const byte E_INFO=8;public const byte E_WARN=4;public const byte E_ERROR=2;public const byte E_FATAL=1;public BMyLog4PB IfFatal{get{return((E_FATAL&Filter)!=0)?this:null;}}public BMyLog4PB IfError{get{return((E_ERROR&Filter)!=0)?this:null;}}public BMyLog4PB IfWarn{get{return((E_WARN&Filter)!=0)?this:null;}}public BMyLog4PB IfInfo{get{return((E_INFO&Filter)!=0)?this:null;}}public BMyLog4PB IfDebug{get{return((E_DEBUG&Filter)!=0)?this:null;}}public BMyLog4PB IfTrace{get{return((E_TRACE&Filter)!=0)?this:null;}}private Dictionary<string,string>k=new Dictionary<string,string>();private Dictionary<string,string>l=new Dictionary<string,string>(){{"{Date}","{0}"},{"{Time}","{1}"},{"{Milliseconds}","{2}"},{"{Severity}","{3}"},{"{CurrentInstructionCount}","{4}"},{"{MaxInstructionCount}","{5}"},{"{Message}","{6}"},{"{Stack}","{7}"},{"{Origin}","{8}"}};private Stack<string>m=new Stack<string>();public byte Filter;public readonly Dictionary<BMyAppenderBase,string>Appenders=new Dictionary<BMyAppenderBase,string>();private string n=@"[{0}-{1}/{2}][{3}][{4}/{5}][{8}][{7}] {6}";private string o=@"[{Date}-{Time}/{Milliseconds}][{Severity}][{CurrentInstructionCount}/{MaxInstructionCount}][{Origin}][{Stack}] {Message}";public string Format{get{return o;}set{n=r(value);o=value;}}private readonly Program p;public bool AutoFlush=true;public BMyLog4PB(Program a):this(a,E_FATAL|E_ERROR|E_WARN|E_INFO,new BMyEchoAppender(a)){}public BMyLog4PB(Program a,byte b,params BMyAppenderBase[]c){Filter=b;this.p=a;foreach(var Appender in c){AddAppender(Appender);}}public void SetMessage(string a,string b){if(!k.ContainsKey(a)){k.Add(a,b);}else{k[a]=b;}}private string q(string a){return k.ContainsKey(a)?k[a]:a;}private string r(string a){string b=a;foreach(var item in l){b=(b!=null)?b.Replace(item.Key,item.Value):null;}return b;}public BMyLog4PB Flush(){foreach(var AppenderItem in Appenders){AppenderItem.Key.Flush();}return this;}public BMyLog4PB PushStack(string a){m.Push(a);return this;}public string PopStack(){return(m.Count>0)?m.Pop():null;}private string s(){return(m.Count>0)?m.Peek():null;}public string StackToString(){if(IfTrace!=null){string[]a=m.ToArray();Array.Reverse(a);return string.Join(@"/",a);}else{return s();}}public BMyLog4PB AddAppender(BMyAppenderBase a,string b=null){if(!Appenders.ContainsKey(a)){Appenders.Add(a,r(b));}return this;}public BMyLog4PB Fatal(string a,params object[]b){if(IfFatal!=null)t("FATAL",a,b);return this;}public BMyLog4PB Error(string a,params object[]b){if(IfError!=null)t("ERROR",a,b);return this;}public BMyLog4PB Warn(string a,params object[]b){if(IfWarn!=null)t("WARN",a,b);return this;}public BMyLog4PB Info(string a,params object[]b){if(IfInfo!=null)t("INFO",a,b);return this;}public BMyLog4PB Debug(string a,params object[]b){if(IfDebug!=null)t("DEBUG",a,b);return this;}public BMyLog4PB Trace(string a,params object[]b){if(IfTrace!=null)t("TRACE",a,b);return this;}private void t(string a,string b,params object[]c){DateTime d=DateTime.Now;b=q(b);string f;try{f=string.Format(b,c);}catch(FormatException e){f=b+" [BMYLOG4PB FATAL]: "+e.Message;}var g=new u(d.ToShortDateString(),d.ToLongTimeString(),d.Millisecond.ToString(),a,p.Runtime.CurrentInstructionCount,p.Runtime.MaxInstructionCount,f,StackToString(),p.Me.CustomName);foreach(var item in Appenders){var h=(item.Value!=null)?item.Value:n;item.Key.Enqueue(g.ToString(h));if(AutoFlush){item.Key.Flush();}}}class u{public string Date;public string Time;public string Milliseconds;public string Severity;public int CurrentInstructionCount;public int MaxInstructionCount;public string Message;public string Stack;public string Origin;public u(string a,string b,string c,string d,int f,int g,string h,string i,string j){this.Date=a;this.Time=b;this.Milliseconds=c;this.Severity=d;this.CurrentInstructionCount=f;this.MaxInstructionCount=g;this.Message=h;this.Stack=i;this.Origin=j;}public override string ToString(){return ToString(@"{0},{1},{2},{3},{4},{5},{6},{7},{8}");}public string ToString(string a){return string.Format(a,Date,Time,Milliseconds,Severity,CurrentInstructionCount,MaxInstructionCount,Message,Stack,Origin);}}public class BMyTextPanelAppender:BMyAppenderBase{List<string>k=new List<string>();List<IMyTextPanel>l=new List<IMyTextPanel>();public bool Autoscroll=true;public bool Prepend=false;public BMyTextPanelAppender(string a,Program b){b.GridTerminalSystem.GetBlocksOfType<IMyTextPanel>(l,(c=>c.CustomName.Contains(a)));}public override void Enqueue(string a){k.Add(a);}public override void Flush(){foreach(var Panel in l){m(Panel);Panel.ShowTextureOnScreen();Panel.ShowPublicTextOnScreen();}k.Clear();}private void m(IMyTextPanel a){if(Autoscroll){List<string>b=new List<string>(a.GetPublicText().Split(new char[]{'\n','\r'},StringSplitOptions.RemoveEmptyEntries));b.AddRange(k);int c=Math.Min(n(a),b.Count);if(Prepend){b.Reverse();}a.WritePublicText(string.Join("\n",b.GetRange(b.Count-c,c).ToArray()),false);}else{if(Prepend){var b=new List<string>(a.GetPublicText().Split(new char[]{'\n','\r'},StringSplitOptions.RemoveEmptyEntries));b.AddRange(k);b.Reverse();a.WritePublicText(string.Join("\n",b.ToArray()),false);}else{a.WritePublicText(string.Join("\n",k.ToArray()),true);}}}private int n(IMyTextPanel a){float b=a.GetValueFloat("FontSize");if(b==0.0f){b=0.01f;}return Convert.ToInt32(Math.Ceiling(17.0f/b));}}public class BMyKryptDebugSrvAppender:BMyAppenderBase{private IMyProgrammableBlock k;private Queue<string>l=new Queue<string>();public BMyKryptDebugSrvAppender(Program a){k=a.GridTerminalSystem.GetBlockWithName("DebugSrv")as IMyProgrammableBlock;}public override void Flush(){if(k!=null){bool a=true;while(a&&l.Count>0){if(k.TryRun("L"+l.Peek())){l.Dequeue();}else{a=false;}}}}public override void Enqueue(string a){l.Enqueue(a);}}public class BMyEchoAppender:BMyAppenderBase{private Program k;public BMyEchoAppender(Program a){this.k=a;}public override void Flush(){}public override void Enqueue(string a){k.Echo(a);}}public class BMyCustomDataAppender:BMyAppenderBase{Program k;public BMyCustomDataAppender(Program a){this.k=a;this.k.Me.CustomData="";}public override void Enqueue(string a){k.Me.CustomData=k.Me.CustomData+'\n'+a;}public override void Flush(){}}public abstract class BMyAppenderBase{public abstract void Enqueue(string a);public abstract void Flush();}}
         #endregion End of  Game Code - Copy/Paste Code from this region into Block Script Window in Game
     }
 }
