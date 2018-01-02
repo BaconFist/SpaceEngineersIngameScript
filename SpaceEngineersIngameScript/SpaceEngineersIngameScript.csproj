@@ -71,6 +71,7 @@
     <Compile Include="Scripts\SolarLightSwitch.cs" />
     <Compile Include="Scripts\SpaceEngineersIngameScript1.cs" />
     <Compile Include="Scripts\SpaceEngineersIngameScript2.cs" />
+    <Compile Include="Scripts\TEST.cs" />
     <Compile Include="Scripts\TestZeug.cs" />
     <Compile Include="Template\IngameScript.cs" />
   </ItemGroup>
